@@ -8,6 +8,8 @@ Provide a collection of useful Advanced Sequencer actions that users can combine
 
 Keep the individual actions small. Offer a guided recovery container for common sequences of actions. Do not make users assemble error handling from scratch just to recover a mount.
 
+A separate [Alpaca safety-monitor design](alpaca-safety-monitor.md) covers a plugin-provided device that aggregates external safety endpoints with bounded tolerance for communication failures.
+
 ## Evidence that motivates the first actions
 
 An ASI Mount session on September 13, 2026 showed this sequence. Times are the driver's log timestamps; their relationship to UTC requires care because the log contains inconsistent local-time offsets.

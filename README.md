@@ -8,4 +8,6 @@ The first design covers mount health checks and recovery after a communication f
 
 Read the [design document](docs/design.md) for the action catalog, mount recovery workflow, Target Scheduler integration, and validation plan.
 
+The [Alpaca safety-monitor design](docs/alpaca-safety-monitor.md) adds a plugin-provided NINA device that combines one or more safety endpoints and tolerates bounded communication hiccups.
+
 The initial compatibility target is NINA 3.2. Support for later versions will require a separate build and integration check as needed.
