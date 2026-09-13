@@ -1,4 +1,4 @@
-# NINA Sequencer Toolbox
+# NINA Field Kit
 
 A proposed collection of small actions, checks, and recovery routines for NINA's Advanced Sequencer.
 

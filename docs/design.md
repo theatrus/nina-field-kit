@@ -1,4 +1,4 @@
-# NINA Sequencer Toolbox design
+# NINA Field Kit design
 
 Status: proposal, September 13, 2026. This document describes intended behavior, not an implemented plugin.
 
