@@ -25,8 +25,8 @@ public sealed class AutofocusAboveHfrTrigger : SequenceTrigger, IValidatable {
     private readonly IHfrAutofocusService service;
     private readonly Func<bool> unsafeNow;
     private readonly Func<TimeSpan> autofocusDuration;
-    private double maximumHfr = 1.7;
-    private string lastResult = "Waiting for HFR";
+    private double? maximumHfr;
+    private string lastResult = "Set maximum HFR";
     private IList<string> issues = new List<string>();
 
     [ImportingConstructor]
@@ -43,13 +43,13 @@ public sealed class AutofocusAboveHfrTrigger : SequenceTrigger, IValidatable {
     }
 
     [JsonProperty]
-    public double MaximumHfr { get => maximumHfr; set { maximumHfr = value; RaisePropertyChanged(); } }
+    public double? MaximumHfr { get => maximumHfr; set { maximumHfr = value; RaisePropertyChanged(); LastResult = value is double limit && AutofocusAboveHfr.IsUsable(limit) ? "Waiting for HFR" : "Set maximum HFR"; Validate(); } }
     public string LastResult { get => lastResult; private set { lastResult = value; RaisePropertyChanged(); } }
     public IList<string> Issues { get => issues; set { issues = value; RaisePropertyChanged(); } }
 
     public bool Validate() {
         var result = new List<string>(service.Validate());
-        if (!AutofocusAboveHfr.IsUsable(MaximumHfr)) result.Add("Maximum HFR must be a finite number greater than zero.");
+        if (MaximumHfr is not double limit || !AutofocusAboveHfr.IsUsable(limit)) result.Add("Maximum HFR must be a finite number greater than zero.");
         Issues = result;
         return result.Count == 0;
     }
@@ -62,13 +62,17 @@ public sealed class AutofocusAboveHfrTrigger : SequenceTrigger, IValidatable {
     public override bool ShouldTrigger(ISequenceItem previousItem, ISequenceItem nextItem) {
         if (nextItem is not IExposureItem { ImageType: "LIGHT" }) return false;
         if (unsafeNow()) { LastResult = "Deferred: safety monitor unsafe"; return false; }
+        if (MaximumHfr is not double limit || !AutofocusAboveHfr.IsUsable(limit)) {
+            LastResult = "Set maximum HFR";
+            return false;
+        }
         var reading = service.ReadLatest();
-        if (!AutofocusAboveHfr.IsUsable(MaximumHfr) || reading == null || !AutofocusAboveHfr.IsUsable(reading.Value)) {
+        if (reading == null || !AutofocusAboveHfr.IsUsable(reading.Value)) {
             LastResult = "Waiting for valid HFR";
             return false;
         }
         LastResult = $"{reading.Source}: {reading.Value:0.###} / {MaximumHfr:0.###}";
-        if (reading.Value <= MaximumHfr) return false;
+        if (reading.Value <= limit) return false;
         if (ItemUtility.IsTooCloseToMeridianFlip(Parent, autofocusDuration() + nextItem.GetEstimatedDuration())) {
             LastResult = "Deferred: meridian flip due";
             return false;
@@ -79,8 +83,12 @@ public sealed class AutofocusAboveHfrTrigger : SequenceTrigger, IValidatable {
     public override async Task Execute(ISequenceContainer context, IProgress<ApplicationStatus> progress, CancellationToken token) {
         token.ThrowIfCancellationRequested();
         if (unsafeNow()) { LastResult = "Deferred: safety monitor unsafe"; return; }
+        if (MaximumHfr is not double limit || !AutofocusAboveHfr.IsUsable(limit)) {
+            LastResult = "Set maximum HFR";
+            throw new SequenceEntityFailedException("Set a maximum HFR greater than zero before using this trigger.");
+        }
         // Reuse the bounded HFR check and result validation, without exposing another sequence instruction.
-        var check = new AutofocusAboveHfr(service) { MaximumHfr = MaximumHfr };
+        var check = new AutofocusAboveHfr(service) { MaximumHfr = limit };
         LastResult = "Running autofocus";
         try { await check.Execute(progress, token); }
         finally { LastResult = check.LastResult; }

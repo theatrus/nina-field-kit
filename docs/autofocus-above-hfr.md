@@ -4,7 +4,7 @@ Implemented on main. The published 0.1.0.8 release has the previous sequence-ite
 
 ## Use
 
-Add **NINA Field Kit → Autofocus Above HFR** to an imaging container's **Triggers**, alongside normal NINA triggers such as AF after HFR. Choose **Maximum HFR** (default 1.7). It uses an absolute limit rather than a percentage increase.
+Add **NINA Field Kit → Autofocus Above HFR** to an imaging container's **Triggers**, alongside normal NINA triggers such as AF after HFR. Enter **Maximum HFR**; there is no default. A new or cleared trigger requires a positive limit before it can run. Saved explicit limits are preserved. It uses an absolute limit rather than a percentage increase.
 
 Before the next LIGHT exposure, compare the latest light/snapshot image or completed autofocus HFR. At or below the limit: do nothing. Above the limit: run autofocus once and check the returned result. Missing or invalid HFR: wait for a valid measurement. Do not trigger before non-exposure instructions, calibration frames, or the end of the sequence. Defer if a connected safety monitor reports unsafe or the estimated autofocus plus next exposure is too close to a meridian flip, using NINA's native scheduling check.
 

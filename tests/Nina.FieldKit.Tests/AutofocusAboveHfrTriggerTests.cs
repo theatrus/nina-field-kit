@@ -31,7 +31,7 @@ public sealed class AutofocusAboveHfrTriggerTests {
     [InlineData(3, true)] [InlineData(1.7, false)] [InlineData(1.2, false)]
     [InlineData(0, false)] [InlineData(double.NaN, false)] [InlineData(double.PositiveInfinity, false)]
     public void FiresOnlyAboveFixedLimit(double value, bool expected) {
-        var trigger = new AutofocusAboveHfrTrigger(new Service { Reading = new(value, "Image") });
+        var trigger = new AutofocusAboveHfrTrigger(new Service { Reading = new(value, "Image") }) { MaximumHfr = 1.7 };
         Assert.Equal(expected, trigger.ShouldTrigger(null!, Exposure("LIGHT")));
     }
     [Fact] public void MissingHistoryDoesNotTrigger() {
@@ -57,7 +57,7 @@ public sealed class AutofocusAboveHfrTriggerTests {
     }
     [Fact] public async Task RunsOnceAndGoodAutofocusResultStopsFurtherTriggers() {
         var service = new Service();
-        var trigger = new AutofocusAboveHfrTrigger(service);
+        var trigger = new AutofocusAboveHfrTrigger(service) { MaximumHfr = 1.7 };
         Assert.True(trigger.ShouldTrigger(null!, Exposure("LIGHT")));
         await trigger.Execute(null!, null!, CancellationToken.None);
         Assert.Equal(1, service.Runs);
@@ -66,7 +66,7 @@ public sealed class AutofocusAboveHfrTriggerTests {
     }
     [Fact] public async Task HighAutofocusResultFailsWithoutInternalLoop() {
         var service = new Service { Result = 3 };
-        var trigger = new AutofocusAboveHfrTrigger(service);
+        var trigger = new AutofocusAboveHfrTrigger(service) { MaximumHfr = 1.7 };
         await Assert.ThrowsAsync<SequenceEntityFailedException>(() => trigger.Execute(null!, null!, CancellationToken.None));
         Assert.Equal(1, service.Runs);
         Assert.StartsWith("Failed:", trigger.LastResult);
@@ -90,4 +90,25 @@ public sealed class AutofocusAboveHfrTriggerTests {
         Assert.Equal(2.2, restored.MaximumHfr);
         Assert.True(restored.ShouldTrigger(null!, Exposure("LIGHT")));
     }
-}
+    [Fact] public async Task NewTriggerRequiresExplicitLimit() {
+        var service = new Service();
+        var trigger = new AutofocusAboveHfrTrigger(service);
+        Assert.Null(trigger.MaximumHfr);
+        Assert.False(trigger.Validate());
+        Assert.False(trigger.ShouldTrigger(null!, Exposure("LIGHT")));
+        Assert.Equal(0, service.Reads);
+        await Assert.ThrowsAsync<SequenceEntityFailedException>(() => trigger.Execute(null!, null!, CancellationToken.None));
+        Assert.Equal(0, service.Runs);
+        Assert.Null(((AutofocusAboveHfrTrigger)trigger.Clone()).MaximumHfr);
+        var restored = new AutofocusAboveHfrTrigger(service);
+        JsonConvert.PopulateObject(JsonConvert.SerializeObject(trigger), restored);
+        Assert.Null(restored.MaximumHfr);
+    }
+    [Fact] public void ClearingConfiguredLimitDisablesTrigger() {
+        var trigger = new AutofocusAboveHfrTrigger(new Service()) { MaximumHfr = 2 };
+        Assert.True(trigger.ShouldTrigger(null!, Exposure("LIGHT")));
+        trigger.MaximumHfr = null;
+        Assert.False(trigger.Validate());
+        Assert.False(trigger.ShouldTrigger(null!, Exposure("LIGHT")));
+        Assert.Equal("Set maximum HFR", trigger.LastResult);
+    }}
