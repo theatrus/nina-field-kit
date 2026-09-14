@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Windows / .NET 8
+    runs-on: windows-2022
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      DOTNET_NOLOGO: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: 8.0.x
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      - name: Restore locked dependencies
+        run: dotnet restore Nina.FieldKit.sln --locked-mode
+
+      - name: Build Release
+        run: dotnet build Nina.FieldKit.sln --configuration Release --no-restore -p:ContinuousIntegrationBuild=true
+
+      - name: Run unit and loopback integration tests
+        run: dotnet test Nina.FieldKit.sln --configuration Release --no-build --no-restore --logger "trx;LogFileName=tests.trx" --results-directory TestResults --blame-hang-timeout 2m
+
+      - name: Upload test results and UI previews
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-windows
+          path: |
+            TestResults/
+            artifacts/safety-*.png
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Stage development plugin
+        run: |
+          $pluginOutput = 'src/Nina.FieldKit.Plugin/bin/Release/net8.0-windows'
+          $artifactDirectory = 'artifacts/plugin/Nina.FieldKit'
+          New-Item -ItemType Directory -Path $artifactDirectory -Force | Out-Null
+          Copy-Item -LiteralPath "$pluginOutput/Nina.FieldKit.Plugin.dll", "$pluginOutput/Nina.FieldKit.Core.dll", 'LICENSE', 'README.md' -Destination $artifactDirectory
+
+      - name: Upload development plugin
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: nina-field-kit-windows
+          path: artifacts/plugin/
+          if-no-files-found: error
+          retention-days: 14

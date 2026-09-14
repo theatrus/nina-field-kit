@@ -1,0 +1,86 @@
+name: Signed release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-2022
+    environment: release
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      id-token: write
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: 8.0.x
+      - name: Validate version
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v(\d+\.\d+\.\d+\.\d+)$') { throw 'Use a vMajor.Minor.Patch.Build tag.' }
+          "value=$($Matches[1])" >> $env:GITHUB_OUTPUT
+      - name: Restore, build and test
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          dotnet restore Nina.FieldKit.sln --locked-mode
+          if ($LASTEXITCODE) { throw 'Restore failed' }
+          dotnet build Nina.FieldKit.sln -c Release --no-restore -p:ContinuousIntegrationBuild=true -p:Version=$env:RELEASE_VERSION -p:AssemblyVersion=$env:RELEASE_VERSION -p:FileVersion=$env:RELEASE_VERSION
+          if ($LASTEXITCODE) { throw 'Build failed' }
+          dotnet test Nina.FieldKit.sln -c Release --no-build --no-restore --logger 'trx;LogFileName=tests.trx' --results-directory TestResults --blame-hang-timeout 2m
+          if ($LASTEXITCODE) { throw 'Tests failed' }
+          ./tools/Build-Release.ps1 -Version $env:RELEASE_VERSION -StageOnly
+      - name: Authenticate to Azure
+        uses: azure/login@935127ca5bb3c4b02c9c2c10060028383878f33f # v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Sign both plugin assemblies
+        uses: azure/trusted-signing-action@c0ae2c1d0c1847ab81ac0ab8521bee597cfedd30 # v2
+        with:
+          endpoint: ${{ vars.SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\artifacts\release\${{ steps.version.outputs.value }}\package
+          files-folder-filter: dll
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+      - name: Verify signatures and package
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.value }}
+        run: ./tools/Build-Release.ps1 -Version $env:RELEASE_VERSION
+      - name: Create draft release for verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          $root = "artifacts/release/$env:RELEASE_VERSION"
+          gh release create "v$env:RELEASE_VERSION" "$root/Nina.FieldKit.$env:RELEASE_VERSION.zip" "$root/Nina.FieldKit.$env:RELEASE_VERSION.manifest.json" "$root/SHA256SUMS.txt" --verify-tag --draft --title "NINA Field Kit $env:RELEASE_VERSION" --notes-file docs/release-notes.md
+          if ($LASTEXITCODE) { throw 'Draft release creation failed' }
+      - name: Upload validation results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-validation
+          path: |
+            TestResults/
+            artifacts/safety-*.png

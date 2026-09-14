@@ -1,6 +1,6 @@
 # Field Kit Alpaca Safety Monitor
 
-Status: design proposal, September 13, 2026. No implementation exists yet.
+Status: implemented development build, September 13, 2026. The provider, multi-endpoint aggregation, background cache refresh, HTTP adapter, profile settings, setup/diagnostics UI, and automated tests are present. Installed-NINA sequence behavior and observatory hardware still require acceptance testing. See [implementation notes](alpaca-safety-implementation.md).
 
 ## Purpose and scope
 
@@ -44,6 +44,7 @@ Store configuration per NINA profile with a versioned schema. Each endpoint has:
 | Safe readings to safe | Consecutive valid safe poll results required to establish or restore safety. |
 | Return-to-safe hold | Minimum sustained-safe duration, in addition to the safe-reading count. |
 | Credential reference | Optional reference to a supported credential store; never embed secrets in exported settings. |
+| HTTP connection lifetime | Retire pooled transport connections within 30 minutes; configurable from 1 to 1800 seconds. This does not disconnect the Alpaca device. |
 
 Provide Add, Edit, Remove, Enable, Test, and optional Discover controls. Manual configuration is required; discovery is a convenience. Discovery must not silently add, replace, or enable sources. Duplicate normalized URL/device pairs are rejected. Redundant routes to the same physical sensor are not independent safety sources.
 
@@ -57,15 +58,18 @@ Proposed defaults for validation, not guarantees about every observatory:
 
 | Setting | Default |
 | --- | --- |
-| Poll interval | 2 seconds |
+| Poll interval | 30 seconds |
 | Request timeout | 1 second |
 | Attempts per poll cycle | 3 total, including the first request |
 | Retry backoff | 500 ms initial, multiplier 2, 30-second cap, equal jitter |
-| Failed cycles to unsafe | 3 |
+| Missed checks tolerated | 2 (third exhausted cycle reports unsafe) |
 | Unsafe readings to unsafe | 1; configurable, for example 3 for a noisy source |
 | Safe readings to safe | 3 |
-| Maximum safe age | 10 seconds, measured from the start of the last successful safe request |
+| Maximum time without a safe update | 90 seconds, configurable, measured from the start of the last successful safe request |
 | Return-to-safe hold | 10 seconds of sustained fresh safe results, plus the configured safe-reading count |
+| HTTP connection lifetime | 1800 seconds (30 minutes), configurable down to 1 second |
+
+Cached operation is the normal mode: NINA getters read local state, while independent background workers refresh each source every 30 seconds by default. The cache lifetime is a hard upper bound on retained safe evidence, not a delay before exposing confirmed unsafe conditions. Failed-cycle and unsafe-reading thresholds may withdraw safety earlier. Background refresh, bounded grace, and configurable transition confirmation dampen flapping without retaining an expired safe authorization.
 
 The setup screen must show these values before first use. Fail-on-first-error sets attempts per cycle and failed-cycle threshold to 1; immediate-unsafe sets the unsafe-reading threshold to 1. Counts must be positive integers. Reject timing settings whose routine polling cannot satisfy their own freshness limits. Retry and reconnect work cannot reset safe age. The age limit is an independent hard bound: it may make the endpoint unsafe before a configured count is reached. Show this interaction and the nominal confirmation delay in the UI, separately from NINA's polling/trigger latency.
 
@@ -106,6 +110,8 @@ GET {base}/api/v1/safetymonitor/{deviceNumber}/issafe
 
 Supply ClientID and ClientTransactionID according to the Alpaca API. GET parameters belong in the query; PUT parameters use form encoding. An HTTP 200 alone is not success: validate the response envelope, ErrorNumber, and the Boolean Value. Preserve server transaction IDs and error details for diagnosis. Do not coerce missing values or strings into true.
 
+Client compatibility follows the official ASCOM Library: omitted ErrorNumber defaults to zero and omitted ErrorMessage to an empty string. Present invalid types, nonzero error numbers, and nonempty error messages still fail; Value and transaction validation are unchanged. This accommodates Starfront's omitted success fields without manufacturing a safe Boolean. See the [live test and source evidence](starfront-live-test.md).
+
 Use bounded response sizes and validate the expected response type. Disable HTTP caching. Reject unexpected redirects by default, especially across hosts, to avoid changing device identity or forwarding credentials. HTTPS certificate validation stays enabled. Authentication support is an explicit feature; unsupported schemes fail clearly rather than retrying forever.
 
 Negotiate supported connection behavior against the chosen interface version. For legacy devices, managed mode may use Connected; newer connection methods require their defined completion checks. Read-only connection mode never issues connect/disconnect writes. The implementation must follow the published interface rather than assuming all generations have identical semantics.
@@ -125,6 +131,8 @@ Example with an already-safe endpoint, failed-cycle threshold 3, and three attem
 Reconnect at a bounded rate. Never disconnect another client as an attempted repair. Some servers share connection state across clients; do not automatically send upstream disconnect on proxy shutdown in the first release. Stop local workers and release HTTP resources. Document the connection policy and shared-client behavior.
 
 Use a tested ASCOM Alpaca client library if its retries, timeouts, connection behavior, and errors can satisfy these rules. Otherwise use a narrow HTTP adapter. Hidden library retries must not outlive the freshness budget. The existing HTTP connection pool may reconnect transport sockets without changing the logical device connection.
+
+The implementation uses a narrow HttpClient adapter with SocketsHttpHandler.PooledConnectionLifetime. A connection older than the configured lifetime is not reused for a new request. An active request finishes or reaches its request timeout; connection renewal never extends safe age. Idle connections expire after at most 30 seconds. Do not rely on indefinitely long keep-alive connections, and do not send upstream Disconnect to renew HTTP transport.
 
 ## NINA integration and failure handling
 

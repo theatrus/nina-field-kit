@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net8.0": {
+      "nina.fieldkit.core": {
+        "type": "Project"
+      }
+    }
+  }
+}

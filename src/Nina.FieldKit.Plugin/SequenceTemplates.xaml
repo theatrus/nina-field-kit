@@ -1,0 +1,25 @@
+<ResourceDictionary x:Class="Nina.FieldKit.Plugin.SequenceTemplates"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:Nina.FieldKit.Plugin">
+    <DataTemplate DataType="{x:Type local:MountHealthCheck}">
+        <StackPanel Margin="6">
+            <TextBlock Text="Checks reported mount state only. No equipment commands." TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal" Margin="0,6">
+                <TextBlock Text="Samples (1–60, one second apart)" VerticalAlignment="Center" />
+                <TextBox Width="55" Margin="8,0" Text="{Binding SampleCount, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" />
+            </StackPanel>
+            <CheckBox Content="Require tracking (only where imaging is expected)" IsChecked="{Binding RequireTracking}" />
+            <CheckBox Content="Require unparked" IsChecked="{Binding RequireUnparked}" />
+            <CheckBox Content="Require no reported slew" IsChecked="{Binding RequireStationary}" />
+            <CheckBox Content="Require confirmed device response (currently returns unknown)" IsChecked="{Binding RequireConfirmedResponse}" />
+            <TextBlock Margin="0,6" Text="{Binding LastResult}" TextWrapping="Wrap" />
+        </StackPanel>
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type local:CaptureEquipmentSnapshot}">
+        <StackPanel Margin="6">
+            <TextBlock Text="Writes the mount's cached state to the NINA session log." TextWrapping="Wrap" />
+            <TextBlock Margin="0,6" Text="{Binding LastResult}" TextWrapping="Wrap" />
+        </StackPanel>
+    </DataTemplate>
+</ResourceDictionary>

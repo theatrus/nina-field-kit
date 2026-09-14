@@ -1,6 +1,6 @@
 # NINA Field Kit design
 
-Status: proposal, September 13, 2026. This document describes intended behavior, not an implemented plugin.
+Status: initial implementation, September 13, 2026. Capture Equipment Snapshot (mount only) and Mount Health Check are implemented against NINA 3.2.0.9001. Tracking, homing, recovery, and triggers remain planned. See [implementation contracts](implementation.md) for the reviewed API evidence, exact defaults, result semantics, and delivery gates.
 
 ## Purpose
 
@@ -132,7 +132,7 @@ Expose health results to NINA's UI and logs first. Expression integration with S
 
 ## Implementation structure and compatibility
 
-Use a normal NINA plugin with MEF-exported sequence items and triggers. Target NINA 3.2 first; verify the exact minimum build before publishing a manifest. This is not a Codex plugin.
+Use a normal NINA plugin with MEF-exported sequence items and, later, triggers. Compile against the stable NINA.Plugin 3.2.0.9001 package on .NET 8 Windows/WPF. The development assembly declares 3.2.0.9001 as its minimum; an installed-host integration test is still required before publishing a distribution manifest. This is not a Codex plugin.
 
 - Sequence items: settings, validation, progress, persistence, and lifecycle.
 - Recovery coordinator: state machine, exclusive ownership, deadlines, and cancellation.
@@ -152,6 +152,8 @@ Each run gets a correlation ID, action/version, driver identity when available, 
 
 Use distinct results: success, failure, cancelled, and uncertain. Map uncertain to a sequencer failure that prevents dependent work. Make the reason visible without requiring the user to read a stack trace. Integrate with NINA's attempt/error settings, but document that retrying the enclosing action must not overlap a prior hardware operation.
 
+The initial health instruction defaults to NINA's AbortOnError with one attempt. NINA owns the actual sequence interruption. If a user changes the instruction to ContinueOnError, NINA may run subsequent instructions despite an unhealthy or unknown result. A health check is therefore not an interlock for future recovery actions: every motion action must enforce its own preconditions and command ownership.
+
 ## Validation plan
 
 Unit tests use fake device adapters and a controlled clock. Cover healthy no-op, tracking loss, cached success during a transport failure, reconnect without restored tracking, position reset, missing capabilities, home timeout, AtHome/Slewing conflict, rejected command, target change, unsafe state, meridian conflict, cancellation, shared-client reconnect, and duplicate trigger attempts.
@@ -162,7 +164,7 @@ Hardware tests proceed under observation: tracking-only interruption, transport 
 
 ## Delivery order
 
-1. Plugin scaffold, snapshots, health checks, and verified Ensure Tracking.
+1. Plugin scaffold, snapshots, health checks, and verified Ensure Tracking. The scaffold and two read-only actions are implemented; Ensure Tracking is the next command-bearing increment.
 2. Rehome Mount with strict completion and bounded failure behavior.
 3. Recover Mount and Target with explicit target coordinates.
 4. Verified Target Scheduler integration and imaging-intent handling.
@@ -177,7 +179,8 @@ Hardware tests proceed under observation: tracking-only interruption, transport 
 - Which Target Scheduler API exposes enough context to recover and resume safely?
 - Can reported-state freshness be measured without bypassing the mediator?
 - How should an affected exposure be marked in Target Scheduler's grading workflow?
-- Which license should the project use before distributing code?
+
+License decision: Field Kit uses Apache-2.0; see the repository [LICENSE](../LICENSE).
 
 ## References
 
