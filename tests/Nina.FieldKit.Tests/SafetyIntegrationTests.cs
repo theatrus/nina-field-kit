@@ -174,6 +174,7 @@ public sealed class SafetyIntegrationTests {
                     }
                     window.Close();
                 }
+                PluginTests.CheckSequenceItemChrome();
                 CheckConnectedDraftControls();
                 app.Shutdown();
             } catch (Exception exception) { failure = exception; }

@@ -22,7 +22,7 @@ Freeze the threshold when execution starts. For a value above the limit or unkno
 
 Call the autofocus provider once per instruction execution. The provider may make its own configured attempts. Record a completed report in NINA history, then enforce the absolute limit. A null, invalid, non-HFR, or above-limit result fails. Do not create an internal retry loop. NINA's instruction-level retry policy can retry the action if explicitly configured. Cancellation propagates, rejects late results, and closes the autofocus window. Failure does not attempt to restore the previous focus position; the autofocus provider owns its equipment operations.
 
-The action shows a separate status box below muted help text. NINA logs contain a correlation ID, threshold, measurement source/value, skipped/started/accepted/failure/cancellation decision. Settings are persisted with the sequence; transient status is not.
+The action uses the standard NINA sequence-item title bar, drag handle, and item menu. A single short help line sits above the status box; additional measurement details are in its tooltip. NINA logs contain a correlation ID, threshold, measurement source/value, skipped/started/accepted/failure/cancellation decision. Settings are persisted with the sequence; transient status is not.
 
 ## Validation
 

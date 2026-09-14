@@ -139,4 +139,61 @@ public sealed class PluginTests {
         Assert.True(thread.Join(TimeSpan.FromSeconds(10)), "WPF resource load timed out");
         Assert.Null(failure);
     }
+    internal static void CheckSequenceItemChrome() {
+        var cache = NINA.WPF.Base.Utility.SharedResourceDictionary.SharedDictionaries;
+        var previous = cache.ToArray();
+        var previousWindow = Application.Current.MainWindow;
+        var shell = new Window();
+        NameScope.SetNameScope(shell, new NameScope());
+        shell.RegisterName("RootGrid", new System.Windows.Controls.Grid());
+        Application.Current.MainWindow = shell;
+        try {
+            // Native sequence chrome needs a profile resource. Keep this test detached from user profiles.
+            var profiles = new Mock<NINA.Profile.Interfaces.IProfileService> { DefaultValue = DefaultValue.Mock };
+            profiles.SetupGet(p => p.ActiveProfile.ColorSchemaSettings).Returns(new NINA.Profile.ColorSchemaSettings());
+            var profileResources = new ResourceDictionary { ["ProfileService"] = profiles.Object };
+            cache[new Uri("/NINA.WPF.Base;component/Resources/StaticResources/ProfileService.xaml", UriKind.Relative)] = new WeakReference(profileResources);
+            var resources = new SequenceTemplates();
+            Assert.IsType<DataTemplate>(resources[new DataTemplateKey(typeof(MountHealthCheck))]);
+            Assert.IsType<DataTemplate>(resources[new DataTemplateKey(typeof(CaptureEquipmentSnapshot))]);
+            Assert.IsType<DataTemplate>(resources[new DataTemplateKey(typeof(AutofocusAboveHfr))]);
+            foreach (var type in new[] { typeof(AutofocusAboveHfr), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot) }) {
+                var template = (DataTemplate)resources[new DataTemplateKey(type)];
+                var block = Assert.IsType<NINA.View.Sequencer.SequenceBlockView>(template.LoadContent());
+                Assert.IsType<System.Windows.Controls.StackPanel>(block.SequenceItemContent);
+                Assert.Contains(Microsoft.Xaml.Behaviors.Interaction.GetBehaviors((DependencyObject)block.Content),
+                    behavior => behavior is NINA.Sequencer.Behaviors.DragDropBehavior);
+                Assert.NotNull(block.FindName("ShowMenuButton"));
+                Assert.NotNull(block.FindName("MoveUpButton"));
+                Assert.NotNull(block.FindName("MoveDownButton"));
+                if (type == typeof(AutofocusAboveHfr)) {
+                    block.DataContext = new AutofocusAboveHfr(Mock.Of<IHfrAutofocusService>()) {
+                        Name = "Autofocus Above HFR"
+                    };
+                    var host = new System.Windows.Controls.Border {
+                        Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(30, 30, 30)),
+                        Child = block, Padding = new Thickness(8)
+                    };
+                    host.Measure(new Size(760, 240));
+                    host.Arrange(new Rect(0, 0, 760, 240));
+                    host.UpdateLayout();
+                    var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(760, 240, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                    bitmap.Render(host);
+                    var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                    encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+                    var directory = System.IO.Path.GetFullPath(System.IO.Path.Combine(AppContext.BaseDirectory, "../../../../../artifacts"));
+                    System.IO.Directory.CreateDirectory(directory);
+                    using var file = System.IO.File.Create(System.IO.Path.Combine(directory, "autofocus-sequence-item.png"));
+                    encoder.Save(file);
+                }
+            }
+            GC.KeepAlive(profileResources);
+        }
+        finally {
+            Application.Current.MainWindow = previousWindow;
+            shell.Close();
+            cache.Clear();
+            foreach (var item in previous) cache[item.Key] = item.Value;
+        }
+    }
 }

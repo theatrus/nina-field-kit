@@ -21,7 +21,7 @@ public interface IHfrAutofocusService {
 
 [Export(typeof(ISequenceItem))]
 [ExportMetadata("Name", "Autofocus Above HFR")]
-[ExportMetadata("Description", "Run autofocus when the latest image or autofocus HFR exceeds a fixed limit. Reject a result that remains above the limit.")]
+[ExportMetadata("Description", "Refocus when the latest HFR exceeds the limit.")]
 [ExportMetadata("Icon", "AutoFocusSVG")]
 [ExportMetadata("Category", "NINA Field Kit")]
 [JsonObject(MemberSerialization.OptIn)]

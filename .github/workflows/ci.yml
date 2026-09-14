@@ -54,6 +54,7 @@ jobs:
           path: |
             TestResults/
             artifacts/safety-*.png
+            artifacts/autofocus-sequence-item.png
             artifacts/fault-tests/
           if-no-files-found: warn
           retention-days: 14
