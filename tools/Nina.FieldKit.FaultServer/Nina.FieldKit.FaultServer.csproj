@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework><IsPackable>false</IsPackable></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../Nina.FieldKit.Testing/Nina.FieldKit.Testing.csproj" /></ItemGroup>
+</Project>

@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Security.Authentication;
+using System.Text;
 using System.Text.Json;
 
 namespace Nina.FieldKit.Core.Safety;
@@ -22,6 +23,8 @@ public sealed class AlpacaSafetyClient : ISafetyEndpointClient {
     private bool prepared;
     private Task? unresolvedRequest;
     public const int MaximumResponseBytes = 64 * 1024;
+    public static string UserAgent => "NINA-Field-Kit/" + typeof(AlpacaSafetyClient).Assembly.GetName().Version;
+    private static readonly UTF8Encoding StrictUtf8 = new(false, throwOnInvalidBytes: true);
 
     public static SocketsHttpHandler CreateHandler(SafetyEndpointOptions options) => new() {
         AllowAutoRedirect = false,
@@ -40,6 +43,7 @@ public sealed class AlpacaSafetyClient : ISafetyEndpointClient {
         this.options = options;
         this.clock = clock ?? TimeProvider.System;
         http = new HttpClient(handler ?? CreateHandler(options), true) { Timeout = Timeout.InfiniteTimeSpan };
+        http.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
     }
 
     private double Now => (double)clock.GetTimestamp() / clock.TimestampFrequency;
@@ -136,10 +140,16 @@ public sealed class AlpacaSafetyClient : ISafetyEndpointClient {
             var transient = !tls && !permanentDns && error.HttpRequestError is
                 (HttpRequestError.ConnectionError or HttpRequestError.NameResolutionError or HttpRequestError.ResponseEnded);
             throw new AlpacaFailure(transient, tls ? "TLS certificate or handshake failed" : "HTTP transport failed: " + error.HttpRequestError);
+        } catch (HttpIOException error) {
+            // Body reads preserve .NET 8's category too: invalid chunk framing is not a dropped connection.
+            throw new AlpacaFailure(error.HttpRequestError is HttpRequestError.ResponseEnded or HttpRequestError.ConnectionError,
+                "HTTP response failed: " + error.HttpRequestError);
         } catch (IOException) {
             throw new AlpacaFailure(true, "HTTP response stream ended unexpectedly");
         } catch (JsonException) {
             throw new AlpacaFailure(false, "Malformed Alpaca JSON response");
+        } catch (DecoderFallbackException) {
+            throw new AlpacaFailure(false, "Alpaca response contains invalid UTF-8");
         } catch (InvalidOperationException) {
             throw new AlpacaFailure(false, "Alpaca response contains an unexpected field type");
         }
@@ -166,7 +176,11 @@ public sealed class AlpacaSafetyClient : ISafetyEndpointClient {
             bytes.Write(buffer, 0, read);
         }
         token.ThrowIfCancellationRequested();
-        using var document = JsonDocument.Parse(bytes.ToArray(), new JsonDocumentOptions { MaxDepth = 16 });
+        var payload = bytes.ToArray();
+        // JsonDocument can defer string decoding for unused fields. Validate the whole wire body,
+        // otherwise malformed bytes in an ignored property could accompany an accepted safe value.
+        _ = StrictUtf8.GetCharCount(payload);
+        using var document = JsonDocument.Parse(payload, new JsonDocumentOptions { MaxDepth = 16 });
         var root = document.RootElement;
         if (root.ValueKind != JsonValueKind.Object) throw new AlpacaFailure(false, "Alpaca envelope must be an object");
         // Duplicate fields are ambiguous and must not authorize safety.

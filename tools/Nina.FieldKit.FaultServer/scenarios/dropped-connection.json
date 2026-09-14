@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "dropped-connection",
+  "armed": true,
+  "maximumRunSeconds": 1800,
+  "devices": [
+    {
+      "number": 0,
+      "interfaceVersion": 3,
+      "connected": true
+    }
+  ],
+  "rules": [
+    {
+      "device": 0,
+      "method": "GET",
+      "member": "issafe",
+      "baseline": {
+        "value": true
+      },
+      "after": {
+        "kind": "reset"
+      }
+    }
+  ]
+}

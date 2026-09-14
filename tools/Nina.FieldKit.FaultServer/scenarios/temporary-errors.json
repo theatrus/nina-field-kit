@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "temporary-errors",
+  "armed": true,
+  "maximumRunSeconds": 1800,
+  "devices": [
+    {
+      "number": 0,
+      "interfaceVersion": 3,
+      "connected": true
+    }
+  ],
+  "rules": [
+    {
+      "device": 0,
+      "method": "GET",
+      "member": "issafe",
+      "baseline": {
+        "value": true
+      },
+      "steps": [
+        {
+          "repeat": 2,
+          "reply": {
+            "kind": "http",
+            "status": 503,
+            "body": "temporary upstream failure"
+          }
+        }
+      ],
+      "after": {
+        "value": true
+      }
+    }
+  ]
+}

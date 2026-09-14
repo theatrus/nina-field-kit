@@ -47,6 +47,10 @@ jobs:
           dotnet test Nina.FieldKit.sln -c Release --no-build --no-restore --logger 'trx;LogFileName=tests.trx' --results-directory TestResults --blame-hang-timeout 2m
           if ($LASTEXITCODE) { throw 'Tests failed' }
           ./tools/Build-Release.ps1 -Version $env:RELEASE_VERSION -StageOnly
+      - name: Verify production-default failure and recovery behavior
+        run: |
+          dotnet tools/Nina.FieldKit.FaultServer/bin/Release/net8.0/Nina.FieldKit.FaultServer.dll --suite defaults --output artifacts/fault-acceptance
+          if ($LASTEXITCODE) { throw 'Production-default fault acceptance failed' }
       - name: Authenticate to Azure
         uses: azure/login@935127ca5bb3c4b02c9c2c10060028383878f33f # v3
         with:
@@ -84,3 +88,5 @@ jobs:
           path: |
             TestResults/
             artifacts/safety-*.png
+            artifacts/fault-tests/
+            artifacts/fault-acceptance/

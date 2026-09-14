@@ -1,0 +1,47 @@
+name: Fault acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Real-time acceptance suite
+        type: choice
+        options: [defaults, soak]
+        default: defaults
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    runs-on: windows-2022
+    timeout-minutes: 50
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+      - name: Build fault runner
+        run: |
+          dotnet restore tools/Nina.FieldKit.FaultServer --locked-mode
+          if ($LASTEXITCODE) { throw 'Restore failed' }
+          dotnet build tools/Nina.FieldKit.FaultServer -c Release --no-restore
+          if ($LASTEXITCODE) { throw 'Build failed' }
+      - name: Run real-time suite
+        env:
+          FAULT_SUITE: ${{ inputs.suite }}
+        run: |
+          dotnet tools/Nina.FieldKit.FaultServer/bin/Release/net8.0/Nina.FieldKit.FaultServer.dll --suite $env:FAULT_SUITE --output artifacts/fault-acceptance
+          if ($LASTEXITCODE) { throw 'Acceptance suite failed; inspect result.json and timelines' }
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: fault-acceptance-${{ inputs.suite }}
+          path: artifacts/fault-acceptance/
+          if-no-files-found: warn

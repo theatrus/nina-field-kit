@@ -88,8 +88,12 @@ Release tags use four version parts, for example `v0.1.0.0`. The [signed release
 
 After verifying and publishing the release, copy its manifest to `manifests/n/NINA Field Kit/3.2.0.9001/manifest.json` in [nina-plugins-registry](https://github.com/theatrus/nina-plugins-registry) and push to `main` to update the catalog. See [release notes](docs/release-notes.md).
 
+## Fault-server testing
+
+The development tools include a standalone Alpaca fault server for scripted errors, malformed data, latency, stalled responses, and connection failures. The integration suite runs in CI; a separate real-time suite checks production defaults and connection renewal. See [running the fault tests](docs/running-fault-tests.md) and the [.NET HTTP audit](docs/http-failure-audit.md).
+
 ## Design and license
 
-[Safety-monitor design](docs/alpaca-safety-monitor.md) · [Implementation notes](docs/alpaca-safety-implementation.md) · [Proposed fault-server integration suite](docs/alpaca-fault-integration-suite.md)
+[Safety-monitor design](docs/alpaca-safety-monitor.md) · [Implementation notes](docs/alpaca-safety-implementation.md) · [Fault-server integration design](docs/alpaca-fault-integration-suite.md)
 
 Copyright 2026 NINA Field Kit contributors. [Apache License, Version 2.0](LICENSE), SPDX `Apache-2.0`. Third-party dependencies retain their own licenses.

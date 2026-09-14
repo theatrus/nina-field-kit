@@ -1849,7 +1849,13 @@
         "type": "Project",
         "dependencies": {
           "NINA.Plugin": "[3.2.0.9001, )",
-          "Nina.FieldKit.Core": "[1.0.0, )"
+          "Nina.FieldKit.Core": "[0.1.0.4, )"
+        }
+      },
+      "nina.fieldkit.testing": {
+        "type": "Project",
+        "dependencies": {
+          "Nina.FieldKit.Core": "[0.1.0.4, )"
         }
       }
     }

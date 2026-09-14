@@ -1,6 +1,6 @@
 # Alpaca fault-server integration suite
 
-Status: proposed design. The fault server, scenario runner, commands, and control API below are not implemented yet. This work covers the safety monitor only.
+Status: design reference. The fault server, xUnit integration coverage, standalone controls, default-policy acceptance, and renewal soak are implemented. See [the runnable guide](running-fault-tests.md) for the actual commands/schema and [HTTP audit](http-failure-audit.md) for findings. The broader matrix and optional dashboard below remain the design roadmap; not every proposed feature is part of the current CLI. This work covers the safety monitor only.
 
 ## Objective
 
