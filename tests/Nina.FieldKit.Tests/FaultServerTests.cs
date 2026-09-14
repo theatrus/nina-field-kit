@@ -230,7 +230,7 @@ public sealed class FaultServerTests {
         var output = Path.Combine(Repository, "artifacts", "fault-tests", "process-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(output);
         var scenarioPath = Path.Combine(output, "scenario.json"); File.WriteAllText(scenarioPath, JsonSerializer.Serialize(new FaultScenario { Rules = [new() { After = FaultReply.Http(503) }] }, FaultScenario.Json));
         var start = new ProcessStartInfo("dotnet") { CreateNoWindow = true, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var argument in new[] { Path.Combine(Repository, "tools/Nina.FieldKit.FaultServer/bin/Release/net8.0/Nina.FieldKit.FaultServer.dll"), "--scenario", scenarioPath, "--output", output }) start.ArgumentList.Add(argument);
+        foreach (var argument in new[] { Path.Combine(Repository, "tools/Nina.FieldKit.FaultServer/bin", new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name, "net8.0/Nina.FieldKit.FaultServer.dll"), "--scenario", scenarioPath, "--output", output }) start.ArgumentList.Add(argument);
         using var process = Process.Start(start)!;
         var stderr = process.StandardError.ReadToEndAsync();
         try {
@@ -289,5 +289,15 @@ public sealed class FaultServerTests {
         Assert.Throws<ArgumentException>(() => new FaultServer(new() { Rules = [new() { Steps = [new(0, FaultReply.Safe())] }] }));
         Assert.Throws<ArgumentException>(() => new FaultServer(new() { Rules = [new() { After = new() { HeaderDelayMs = int.MaxValue } }] }));
         Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<FaultScenario>("{\"unknownField\":true}", FaultScenario.Json));
+    }
+
+    [Fact] public async Task PauseCancelsStalledHandlersAndAllowsHealthyResume() {
+        await using var run = new Run(new() { Kind = ReplyKind.Stall }, "pause-stalls");
+        using var client = new AlpacaSafetyClient(run.Options);
+        run.Server.Activate(); Assert.Equal(PollOutcome.TransientFailure, (await client.PollAsync(default)).Outcome);
+        var before = run.Server.Connections;
+        await run.Server.PauseAsync();
+        await Until(() => run.Server.Journal.Snapshot().Count(e => e.Event == "ConnectionClosed") == before);
+        run.Server.Reset(); run.Server.Resume(); await UntilSafe(client);
     }
 }

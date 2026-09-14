@@ -18,6 +18,7 @@ public sealed class FaultServer : IAsyncDisposable {
     private TcpListener listener;
     private readonly CancellationTokenSource stop = new();
     private readonly ConcurrentDictionary<long, TcpClient> clients = new();
+    private readonly ConcurrentDictionary<long, CancellationTokenSource> connectionStops = new();
     private readonly ConcurrentDictionary<long, Task> handlers = new();
     private readonly ConcurrentQueue<SeenRequest> requests = new();
     private readonly ConcurrentQueue<Exception> errors = new();
@@ -64,6 +65,7 @@ public sealed class FaultServer : IAsyncDisposable {
     public async Task PauseAsync() {
         lock (gate) { listening = false; listener.Stop(); }
         await acceptLoop.ConfigureAwait(false);
+        foreach (var cancellation in connectionStops.Values) { try { cancellation.Cancel(); } catch (ObjectDisposedException) { } }
         foreach (var client in clients.Values) client.Dispose();
         Journal.Write("ListenerPaused", new { });
     }
@@ -78,28 +80,31 @@ public sealed class FaultServer : IAsyncDisposable {
                 var id = Interlocked.Increment(ref nextConnection);
                 if (clients.Count >= 64) { client.Dispose(); Journal.Write("ConnectionLimit", new { id }); continue; }
                 clients[id] = client;
-                var task = HandleAsync(id, client);
+                var connectionStop = CancellationTokenSource.CreateLinkedTokenSource(stop.Token);
+                connectionStops[id] = connectionStop;
+                var task = HandleAsync(id, client, connectionStop);
                 handlers[id] = task;
                 _ = task.ContinueWith(_ => handlers.TryRemove(id, out var ignored), TaskScheduler.Default);
             }
         } catch (Exception e) when ((e is OperationCanceledException or SocketException or ObjectDisposedException) && (!listening || stop.IsCancellationRequested)) { }
         catch (Exception e) { errors.Enqueue(e); Journal.Write("ServerError", new { type = e.GetType().Name }); }
     }
-    private async Task HandleAsync(long connection, TcpClient client) {
+    private async Task HandleAsync(long connection, TcpClient client, CancellationTokenSource connectionStop) {
         var bytesSent = 0L;
         try {
             using (client) {
-                Stream stream = client.GetStream();
-                if (certificate is not null) {
-                    var ssl = new SslStream(stream, leaveInnerStreamOpen: false); stream = ssl;
-                    using var handshakeTimeout = CancellationTokenSource.CreateLinkedTokenSource(stop.Token);
+                using var network = client.GetStream();
+                using var ssl = certificate is null ? null : new SslStream(network, leaveInnerStreamOpen: true);
+                Stream stream = (Stream?)ssl ?? network;
+                if (ssl is not null) {
+                    using var handshakeTimeout = CancellationTokenSource.CreateLinkedTokenSource(connectionStop.Token);
                     handshakeTimeout.CancelAfter(TimeSpan.FromSeconds(5));
                     await ssl.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificate = certificate }, handshakeTimeout.Token).ConfigureAwait(false);
                 }
                 using (stream) {
                     using var reader = new StreamReader(stream, Encoding.ASCII, false, 1024, true);
-                    while (!stop.IsCancellationRequested) {
-                        using var readTimeout = CancellationTokenSource.CreateLinkedTokenSource(stop.Token);
+                    while (!connectionStop.IsCancellationRequested) {
+                        using var readTimeout = CancellationTokenSource.CreateLinkedTokenSource(connectionStop.Token);
                         readTimeout.CancelAfter(TimeSpan.FromSeconds(35));
                         var line = await ReadLine(reader, readTimeout.Token).ConfigureAwait(false);
                         if (line is null) return;
@@ -133,11 +138,11 @@ public sealed class FaultServer : IAsyncDisposable {
                         requests.Enqueue(request); Interlocked.Increment(ref totalRequests);
                         if (requests.Count > 10000) requests.TryDequeue(out _);
                         Journal.Write("Request", request);
-                        if (reply.HeaderDelayMs > 0) await Task.Delay(reply.HeaderDelayMs, stop.Token).ConfigureAwait(false);
-                        if (reply.Kind == ReplyKind.Stall) await Task.Delay(Timeout.Infinite, stop.Token).ConfigureAwait(false);
+                        if (reply.HeaderDelayMs > 0) await Task.Delay(reply.HeaderDelayMs, connectionStop.Token).ConfigureAwait(false);
+                        if (reply.Kind == ReplyKind.Stall) await Task.Delay(Timeout.Infinite, connectionStop.Token).ConfigureAwait(false);
                         if (reply.Kind == ReplyKind.Reset) { client.Client.LingerState = new(true, 0); return; }
                         if (reply.Kind == ReplyKind.Close) return;
-                        async Task Write(byte[] data) { await stream.WriteAsync(data, stop.Token).ConfigureAwait(false); bytesSent += data.Length; }
+                        async Task Write(byte[] data) { await stream.WriteAsync(data, connectionStop.Token).ConfigureAwait(false); bytesSent += data.Length; }
                         if (reply.RawHttp is not null) {
                             await Write(Encoding.UTF8.GetBytes(Expand(reply.RawHttp, transaction, request.Id)));
                             return;
@@ -148,8 +153,8 @@ public sealed class FaultServer : IAsyncDisposable {
                         header.Append($"Connection: {(reply.CloseAfter ? "close" : "keep-alive")}\r\n");
                         foreach (var pair in reply.Headers) header.Append($"{pair.Key}: {pair.Value}\r\n");
                         header.Append("\r\n"); await Write(Encoding.ASCII.GetBytes(header.ToString()));
-                        if (reply.StallAfterHeaders) await Task.Delay(Timeout.Infinite, stop.Token).ConfigureAwait(false);
-                        if (reply.BodyDelayMs > 0) await Task.Delay(reply.BodyDelayMs, stop.Token).ConfigureAwait(false);
+                        if (reply.StallAfterHeaders) await Task.Delay(Timeout.Infinite, connectionStop.Token).ConfigureAwait(false);
+                        if (reply.BodyDelayMs > 0) await Task.Delay(reply.BodyDelayMs, connectionStop.Token).ConfigureAwait(false);
                         var take = Math.Min(payload.Length, reply.TruncateAfterBytes ?? payload.Length);
                         var chunk = reply.ChunkBytes == 0 ? Math.Max(1, take) : reply.ChunkBytes;
                         for (var offset = 0; offset < take; offset += chunk) {
@@ -157,7 +162,7 @@ public sealed class FaultServer : IAsyncDisposable {
                             if (reply.Chunked) await Write(Encoding.ASCII.GetBytes($"{count:x}\r\n"));
                             await Write(payload.AsSpan(offset, count).ToArray());
                             if (reply.Chunked) await Write("\r\n"u8.ToArray());
-                            if (reply.ChunkDelayMs > 0) await Task.Delay(reply.ChunkDelayMs, stop.Token).ConfigureAwait(false);
+                            if (reply.ChunkDelayMs > 0) await Task.Delay(reply.ChunkDelayMs, connectionStop.Token).ConfigureAwait(false);
                         }
                         if (reply.TruncateAfterBytes is not null) return;
                         if (reply.Chunked) await Write("0\r\n\r\n"u8.ToArray());
@@ -166,10 +171,10 @@ public sealed class FaultServer : IAsyncDisposable {
                     }
                 }
             }
-        } catch (Exception e) when (e is not InvalidDataException && e is OperationCanceledException or IOException or SocketException or ObjectDisposedException or AuthenticationException) {
+        } catch (Exception e) when (e is not InvalidDataException && e is (OperationCanceledException or IOException or SocketException or ObjectDisposedException or AuthenticationException)) {
             Journal.Write("ConnectionEnded", new { connection, reason = e.GetType().Name, bytesSent });
         } catch (Exception e) { errors.Enqueue(e); Journal.Write("ServerError", new { connection, type = e.GetType().Name }); }
-        finally { clients.TryRemove(connection, out _); Journal.Write("ConnectionClosed", new { connection, bytesSent }); }
+        finally { clients.TryRemove(connection, out _); connectionStops.TryRemove(connection, out _); connectionStop.Dispose(); Journal.Write("ConnectionClosed", new { connection, bytesSent }); }
     }
     private static async Task<string?> ReadLine(StreamReader reader, CancellationToken token) {
         var buffer = new char[1]; var line = new StringBuilder();
