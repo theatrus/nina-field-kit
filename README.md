@@ -4,7 +4,7 @@
 
 Alpaca safety monitoring and equipment checks for [NINA](https://nighttime-imaging.eu/). Field Kit combines required safety sources into one safe/unsafe result and includes two read-only Advanced Sequencer actions: **Capture Equipment Snapshot** and **Mount Health Check**.
 
-Requires **NINA 3.2.0.9001 or newer** on Windows. Built and tested against 3.2.0.9001. Published DLLs are timestamped and signed by **StackFoundry LLC** through Azure signing. Licensed under **Apache-2.0**.
+Requires **NINA 3.2.0.9001 or newer** on Windows. Built and tested against 3.2.0.9001. Published DLLs are code-signed. Licensed under **Apache-2.0**.
 
 ## Install
 
@@ -93,7 +93,7 @@ dotnet test Nina.FieldKit.sln -c Release --no-build
 
 [CI](https://github.com/theatrus/nina-field-kit/actions/workflows/ci.yml) builds and tests on Windows, including fake-clock and loopback integration tests and rendered NINA-themed dialogs. Tests use simulated or loopback endpoints and never contact observatory hardware. NINA's transitive ToastNotifications and VVVV.FreeImage dependencies currently emit NU1701 compatibility warnings. Installed-host and sequence behavior should be validated with your equipment.
 
-Release tags use four version parts, for example `v0.1.0.0`. The [signed release workflow](.github/workflows/release.yml) builds and tests the tagged source, authenticates through the Azure `release` environment using OIDC, signs both DLLs, verifies timestamped StackFoundry LLC signatures, and then creates the archive, SHA-256 checksum, and NINA manifest. It produces a draft GitHub release for verification. There is no unsigned release fallback.
+Release tags use four version parts, for example `v0.1.0.0`. The [signed release workflow](.github/workflows/release.yml) builds and tests the tagged source, produces code-signed DLLs, verifies their signatures, and creates the archive, SHA-256 checksum, and NINA manifest. It produces a draft GitHub release for verification. There is no unsigned release fallback.
 
 After verifying and publishing the release, copy its manifest to `manifests/n/NINA Field Kit/3.2.0.9001/manifest.json` in [nina-plugins-registry](https://github.com/theatrus/nina-plugins-registry) and push to `main` to update the catalog. See [release notes](docs/release-notes.md).
 

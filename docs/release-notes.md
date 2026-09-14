@@ -1,4 +1,4 @@
-NINA Field Kit 0.1.0.2, for NINA 3.2.0.9001 or newer.
+NINA Field Kit 0.1.0.3, for NINA 3.2.0.9001 or newer.
 
 This patch replaces provider-specific names, addresses, and setup guidance with generic Alpaca examples. Polling, retry, and safety behavior are unchanged.
 
@@ -8,7 +8,7 @@ This patch replaces provider-specific names, addresses, and setup guidance with 
 - ASCOM-compatible response parsing, themed setup, live configuration edits, retry status, and NINA logging/export diagnostics.
 - Read-only Capture Equipment Snapshot and Mount Health Check Advanced Sequencer actions.
 
-Both DLLs are timestamped and signed by StackFoundry LLC using Azure signing. The archive contains the DLLs at its root, README, and Apache-2.0 license. The included NINA manifest and SHA256SUMS.txt identify the final signed archive.
+Both DLLs are code-signed. The archive contains the DLLs at its root, README, and Apache-2.0 license. The included NINA manifest and SHA256SUMS.txt identify the final signed archive.
 
 Install **NINA Field Kit** through the plugin source **https://nina-plugins.psf-guard.com/**, then restart NINA. Open Safety Monitor equipment, select **Field Kit Alpaca Safety Monitor**, and open Setup. See the [usage guide](https://github.com/theatrus/nina-field-kit#readme) for source setup, retries, and safety behavior.
 
