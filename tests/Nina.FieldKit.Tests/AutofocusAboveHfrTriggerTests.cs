@@ -79,7 +79,7 @@ public sealed class AutofocusAboveHfrTriggerTests {
         Assert.Equal(0, service.Runs);
     }
     [Fact] public void CloneAndJsonPreserveLimit() {
-        var trigger = new AutofocusAboveHfrTrigger(new Service()) { MaximumHfr = 2.2, Name = "Autofocus Above HFR" };
+        var trigger = new AutofocusAboveHfrTrigger(new Service()) { MaximumHfr = 2.2, Name = "AF above HFR" };
         var clone = Assert.IsType<AutofocusAboveHfrTrigger>(trigger.Clone());
         Assert.Equal(2.2, clone.MaximumHfr);
         Assert.Equal(trigger.Name, clone.Name);

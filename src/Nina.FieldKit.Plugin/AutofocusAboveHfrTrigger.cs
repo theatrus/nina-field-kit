@@ -16,7 +16,7 @@ using NINA.WPF.Base.Interfaces.ViewModel;
 namespace Nina.FieldKit.Plugin;
 
 [Export(typeof(ISequenceTrigger))]
-[ExportMetadata("Name", "Autofocus Above HFR")]
+[ExportMetadata("Name", "AF above HFR")]
 [ExportMetadata("Description", "Refocus before the next light exposure when HFR exceeds the limit.")]
 [ExportMetadata("Icon", "AutoFocusAfterHFRSVG")]
 [ExportMetadata("Category", "NINA Field Kit")]

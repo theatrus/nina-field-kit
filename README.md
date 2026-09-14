@@ -68,7 +68,7 @@ The monitor reports safety to NINA. Configure and verify the desired **Advanced 
 
 The trigger implementation is on `main`; published version 0.1.0.8 still contains the older sequence item.
 
-1. In the **Advanced Sequencer**, add **NINA Field Kit → Autofocus Above HFR** to your imaging container's **Triggers**.
+1. In the **Advanced Sequencer**, add **NINA Field Kit → AF above HFR** to your imaging container's **Triggers**.
 2. Enter **Maximum HFR**. New triggers start blank and require a positive limit.
 3. Capture light frames normally. Before each light exposure, the trigger checks the latest image or autofocus HFR.
 

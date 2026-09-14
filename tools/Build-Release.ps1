@@ -59,7 +59,7 @@ $manifest = [ordered]@{
     MinimumApplicationVersion = [ordered]@{ Major = '3'; Minor = '2'; Patch = '0'; Build = '9001' }
     Descriptions = [ordered]@{
         ShortDescription = 'Multi-source Alpaca safety monitoring and autofocus HFR limits.'
-        LongDescription = 'Combines multiple Alpaca safety sources into one NINA safety result, with background polling, configurable retries, live setup, and clear diagnostics. Includes Autofocus Above HFR: a trigger that runs autofocus before the next light exposure when the latest HFR exceeds your chosen limit and rejects autofocus fits that remain above it.'
+        LongDescription = 'Combines multiple Alpaca safety sources into one NINA safety result, with background polling, configurable retries, live setup, and clear diagnostics. Includes AF above HFR: a trigger that runs autofocus before the next light exposure when the latest HFR exceeds your chosen limit and rejects autofocus fits that remain above it.'
         FeaturedImageURL = "https://raw.githubusercontent.com/theatrus/nina-field-kit/v$Version/src/Nina.FieldKit.Plugin/Assets/field-kit.png"
         ScreenshotURL = ''
         AltScreenshotURL = ''

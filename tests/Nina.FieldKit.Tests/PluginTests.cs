@@ -170,7 +170,7 @@ public sealed class PluginTests {
                 Assert.NotNull(block.FindName("MoveDownButton"));
                 if (type == typeof(AutofocusAboveHfrTrigger)) {
                     block.DataContext = new AutofocusAboveHfrTrigger(Mock.Of<IHfrAutofocusService>()) {
-                        Name = "Autofocus Above HFR"
+                        Name = "AF above HFR"
                     };
                     var host = new System.Windows.Controls.Border {
                         Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(30, 30, 30)),
