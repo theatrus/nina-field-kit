@@ -1,6 +1,6 @@
 # AF above HFR trigger
 
-Implemented on main. The published 0.1.0.8 release has the previous sequence-item implementation.
+Available in version 0.1.0.9 and newer.
 
 ## Use
 
