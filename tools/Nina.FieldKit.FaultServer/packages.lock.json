@@ -8,7 +8,7 @@
       "nina.fieldkit.testing": {
         "type": "Project",
         "dependencies": {
-          "Nina.FieldKit.Core": "[0.1.0.6, )"
+          "Nina.FieldKit.Core": "[0.1.0.7, )"
         }
       }
     }

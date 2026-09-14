@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+\.\d+$')]
-    [string] $Version = '0.1.0.6',
+    [string] $Version = '0.1.0.7',
     [switch] $StageOnly
 )
 $ErrorActionPreference = 'Stop'
@@ -46,7 +46,7 @@ $checksum = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
 $parts = $Version.Split('.')
 $repository = 'https://github.com/theatrus/nina-field-kit'
 $manifest = [ordered]@{
-    Name = 'NINA Field Kit'
+    Name = 'Field Kit'
     Identifier = 'd2487d32-9277-45ec-b5df-89ecbff61c78'
     Version = [ordered]@{ Major = $parts[0]; Minor = $parts[1]; Patch = $parts[2]; Build = $parts[3] }
     Author = 'Yann Ramin'

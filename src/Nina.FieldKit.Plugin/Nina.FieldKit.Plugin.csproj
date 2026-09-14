@@ -3,7 +3,7 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <AssemblyName>Nina.FieldKit.Plugin</AssemblyName>
-    <AssemblyTitle>NINA Field Kit</AssemblyTitle>
+    <AssemblyTitle>Field Kit</AssemblyTitle>
     <Description>Alpaca safety monitoring and an absolute HFR autofocus check.</Description>
     <ApplicationIcon>Assets/field-kit.ico</ApplicationIcon>
     <IsPackable>false</IsPackable>
