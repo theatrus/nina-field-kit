@@ -131,7 +131,7 @@ public sealed class SafetyIntegrationTests {
                 var manifestIcon = BitmapFrame.Create(new Uri(new Nina.FieldKit.Plugin.FieldKitPlugin().Descriptions.FeaturedImageURL));
                 Assert.Equal(512, manifestIcon.PixelWidth);
                 using var device = new FieldKitSafetyMonitor(Profiles().Object);
-                var example = new SafetyEndpointOptions { Label = "Starfront · Building 4", BaseUrl = "https://alpaca-api.tx.starfront.space", DeviceNumber = 4 };
+                var example = new SafetyEndpointOptions { Label = "Observatory safety", BaseUrl = "http://192.0.2.1:11111", DeviceNumber = 0 };
                 device.SaveConfiguration(new SafetyConfiguration { Endpoints = [example] }, device.ProfileIdentity);
                 // Render detached visual trees without opening a user-visible window.
                 foreach (var theme in new[] { "Dark", "Persian Faint", "Light" })

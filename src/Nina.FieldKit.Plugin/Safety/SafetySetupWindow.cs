@@ -352,8 +352,8 @@ public sealed class SafetyEndpointEditor : Window {
         }
         var source = Page("Source", "Enter the server address and the SafetyMonitor device number supplied by your observatory.");
         Field(source, "Label", "Source name", "A name you will recognize in NINA.");
-        Field(source, "BaseUrl", "Server URL", "Example: https://alpaca-api.tx.starfront.space — omit /api/v1/…");
-        Field(source, "DeviceNumber", "SafetyMonitor device number", "Use the number assigned to your building or device.");
+        Field(source, "BaseUrl", "Server URL", "Example address: http://192.0.2.1:11111 (replace with your server) — omit /api/v1/…");
+        Field(source, "DeviceNumber", "SafetyMonitor device number", "Use the SafetyMonitor device number assigned by your server.");
         // NINA's checkbox template is an ON/OFF switch and does not display Content.
         var enabled = new CheckBox { IsChecked = original.Enabled, VerticalAlignment = VerticalAlignment.Center };
         System.Windows.Automation.AutomationProperties.SetName(enabled, "Require this source to be safe");
@@ -362,12 +362,12 @@ public sealed class SafetyEndpointEditor : Window {
         enableRow.Children.Add(new Label { Content = "Enabled — require this source to be safe", Target = enabled, Padding = new Thickness(0, 4, 0, 4) });
         source.Panel.Children.Add(enableRow);
         var connection = new ComboBox { SelectedValuePath = "Tag", MinHeight = 32 };
-        connection.Items.Add(new ComboBoxItem { Content = "No — read status only (Starfront)", Tag = ConnectionPolicy.ExternallyManaged });
+        connection.Items.Add(new ComboBoxItem { Content = "No — read status only", Tag = ConnectionPolicy.ExternallyManaged });
         connection.Items.Add(new ComboBoxItem { Content = "Yes — send Connect when needed", Tag = ConnectionPolicy.Managed });
         connection.SelectedValue = original.ConnectionPolicy;
         source.Panel.Children.Add(new Label { Content = "Send Alpaca Connect commands?", Target = connection, Padding = new Thickness(0, 0, 0, 5) });
         source.Panel.Children.Add(connection);
-        source.Panel.Children.Add(SafetyDialogLayout.Note("Choose No for Starfront. Choose Yes if the safety driver requires a Connect command before it can report status. Test follows this choice. HTTP connections renew automatically in either mode."));
+        source.Panel.Children.Add(SafetyDialogLayout.Note("Choose No if the server already reports its device as connected. Choose Yes if the safety driver requires a Connect command before it can report status. Test follows this choice. HTTP connections renew automatically in either mode."));
 
         var safety = Page("Safety behavior", "Check the server at the interval below. Temporary errors use the missed-check allowance. A valid unsafe response is handled separately. Startup remains unsafe until confirmed.");
         Field(safety, "PollSeconds", "Check server every (seconds)", "Normal delay between checks. Default: 30 s. Errors may retry sooner; an unsafe change is noticed at the next check.");

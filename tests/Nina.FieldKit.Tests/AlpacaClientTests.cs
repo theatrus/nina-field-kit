@@ -88,8 +88,7 @@ public sealed class AlpacaClientTests {
     }
 
     [Theory] [InlineData(true)] [InlineData(false)]
-    public async Task StarfrontEnvelopeWithoutErrorFieldsUsesAscomSuccessDefaults(bool safe) {
-        // Reduced fixture from the documented Building 4 endpoint, 2026-09-13.
+    public async Task EnvelopeWithoutErrorFieldsUsesAscomSuccessDefaults(bool safe) {
         // Match the official ASCOM client's defaults without defaulting the safety Value.
         using var handler = new Handler { Respond = (r, id, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) {
             Content = new StringContent(JsonSerializer.Serialize(new {

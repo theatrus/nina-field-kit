@@ -21,7 +21,7 @@ For manual installation, download the ZIP from [Releases](https://github.com/the
 
 1. Open NINA's **Safety Monitor** equipment panel, choose **Field Kit Alpaca Safety Monitor**, and open **Setup**.
 2. Choose **Add source**. Enter a name, the Alpaca server's base URL, and its SafetyMonitor device number. Do not append `/api/v1/.../issafe` to the URL.
-3. Set **Send Alpaca Connect commands?** to **No — read status only** for an already-connected service such as Starfront. Choose **Yes — send Connect when needed** if that server requires the client to connect its device before reading safety. Neither choice controls HTTP connection renewal.
+3. Set **Send Alpaca Connect commands?** to **No — read status only** for a service that already reports its device as connected. Choose **Yes — send Connect when needed** if that server requires the client to connect its device before reading safety. Neither choice controls HTTP connection renewal.
 4. Review **Safety behavior**. The defaults below are a starting point; set thresholds to match the source and your observing requirements.
 5. Choose **Use these settings**, then **Save to profile**. Connect the monitor from NINA.
 
@@ -29,20 +29,20 @@ Every enabled source is required: all must satisfy their safety policy for the c
 
 Sources can be added, edited, removed, or disabled while connected. **Save to profile** applies the draft live. The prior result is retained while the new configuration refreshes, bounded by the original safe-evidence expiry; repeated edits cannot extend it. New confirmed unsafe/error results can withdraw safety sooner. A separate **Test source** is available while disconnected and does not update live monitoring.
 
-### Starfront example
+### Example source
 
-For **Building 4**, use:
+For an Alpaca SafetyMonitor on your local network:
 
-| Setting | Value |
+| Setting | Example |
 | --- | --- |
-| Name | Starfront · Building 4 |
-| Server URL | `https://alpaca-api.tx.starfront.space` |
-| Device number | `4` |
-| Send Alpaca Connect commands? | No — read status only |
+| Name | Observatory safety |
+| Server URL | `http://192.0.2.1:11111` |
+| Device number | `0` |
+| Send Alpaca Connect commands? | No — read status only, if the device is already connected |
 | Check server every | 30 seconds |
 | Missed checks tolerated | 2 |
 
-Use your actual building/device number. See [Starfront's setup guide](https://docs.starfront.space/guides/ascom_alpaca/safety). Field Kit accepts Starfront's omitted success/error fields in the same way as the official ASCOM library, while still rejecting malformed readings and explicit errors.
+The address above is a documentation placeholder. Replace it with your server's address and use its assigned SafetyMonitor device number. Field Kit accepts omitted success/error fields in the same way as the official ASCOM library, while still rejecting malformed readings and explicit errors.
 
 ### Checks, retries, and safety decisions
 
@@ -91,7 +91,7 @@ dotnet build Nina.FieldKit.sln -c Release --no-restore
 dotnet test Nina.FieldKit.sln -c Release --no-build
 ```
 
-[CI](https://github.com/theatrus/nina-field-kit/actions/workflows/ci.yml) builds and tests on Windows, including fake-clock and loopback integration tests and rendered NINA-themed dialogs. Tests never contact Starfront or observatory hardware. NINA's transitive ToastNotifications and VVVV.FreeImage dependencies currently emit NU1701 compatibility warnings. Installed-host and sequence behavior should be validated with your equipment.
+[CI](https://github.com/theatrus/nina-field-kit/actions/workflows/ci.yml) builds and tests on Windows, including fake-clock and loopback integration tests and rendered NINA-themed dialogs. Tests use simulated or loopback endpoints and never contact observatory hardware. NINA's transitive ToastNotifications and VVVV.FreeImage dependencies currently emit NU1701 compatibility warnings. Installed-host and sequence behavior should be validated with your equipment.
 
 Release tags use four version parts, for example `v0.1.0.0`. The [signed release workflow](.github/workflows/release.yml) builds and tests the tagged source, authenticates through the Azure `release` environment using OIDC, signs both DLLs, verifies timestamped StackFoundry LLC signatures, and then creates the archive, SHA-256 checksum, and NINA manifest. It produces a draft GitHub release for verification. There is no unsigned release fallback.
 
