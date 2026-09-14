@@ -2,6 +2,21 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="clr-namespace:Nina.FieldKit.Plugin">
+    <DataTemplate DataType="{x:Type local:AutofocusAboveHfr}">
+        <StackPanel Margin="6">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Maximum HFR" VerticalAlignment="Center" />
+                <TextBox Width="70" Margin="8,0" Text="{Binding MaximumHfr, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" />
+            </StackPanel>
+            <TextBlock Margin="0,6,0,0" Opacity="0.75" TextWrapping="Wrap"
+                Text="Uses the latest light/snapshot image HFR or autofocus fit HFR. At or below the limit: skip. Above the limit or unavailable: run autofocus once." />
+            <TextBlock Margin="0,4,0,0" Opacity="0.75" TextWrapping="Wrap"
+                Text="Fails if the new autofocus fit is still above the limit or unavailable. Uses the configured autofocus provider and its normal retry settings. Requires Star HFR mode." />
+            <Border Margin="0,8,0,0" Padding="6" BorderThickness="1" BorderBrush="{DynamicResource PrimaryBrush}">
+                <TextBlock Text="{Binding LastResult}" TextWrapping="Wrap" />
+            </Border>
+        </StackPanel>
+    </DataTemplate>
     <DataTemplate DataType="{x:Type local:MountHealthCheck}">
         <StackPanel Margin="6">
             <TextBlock Text="Checks reported mount state only. No equipment commands." TextWrapping="Wrap" />

@@ -107,12 +107,18 @@ public sealed class PluginTests {
         telescope.VerifyNoOtherCalls();
     }
 
-    [Fact] public void MefDiscoversManifestAndBothInstructions() {
-        using var catalog = new TypeCatalog(typeof(FieldKitPlugin), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot));
+    [Fact] public void MefDiscoversManifestAndAllInstructions() {
+        using var catalog = new TypeCatalog(typeof(FieldKitPlugin), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot), typeof(AutofocusAboveHfr));
         using var container = new CompositionContainer(catalog);
         container.ComposeExportedValue(Telescope().Object);
+        container.ComposeExportedValue(Mock.Of<NINA.Profile.Interfaces.IProfileService>());
+        container.ComposeExportedValue(Mock.Of<NINA.WPF.Base.Interfaces.ViewModel.IImageHistoryVM>());
+        container.ComposeExportedValue(Mock.Of<ICameraMediator>());
+        container.ComposeExportedValue(Mock.Of<IFilterWheelMediator>());
+        container.ComposeExportedValue(Mock.Of<IFocuserMediator>());
+        container.ComposeExportedValue(Mock.Of<NINA.WPF.Base.Interfaces.IAutoFocusVMFactory>());
         Assert.Single(container.GetExportedValues<IPluginManifest>());
-        Assert.Equal(2, container.GetExportedValues<ISequenceItem>().Count());
+        Assert.Equal(3, container.GetExportedValues<ISequenceItem>().Count());
         Assert.Equal("3.2.0.9001", new FieldKitPlugin().MinimumApplicationVersion.ToString());
         Assert.Equal("Apache-2.0", new FieldKitPlugin().License);
         Assert.Equal("https://www.apache.org/licenses/LICENSE-2.0", new FieldKitPlugin().LicenseURL);
@@ -125,6 +131,7 @@ public sealed class PluginTests {
                 var resources = new SequenceTemplates();
                 Assert.IsType<DataTemplate>(resources[new DataTemplateKey(typeof(MountHealthCheck))]);
                 Assert.IsType<DataTemplate>(resources[new DataTemplateKey(typeof(CaptureEquipmentSnapshot))]);
+                Assert.IsType<DataTemplate>(resources[new DataTemplateKey(typeof(AutofocusAboveHfr))]);
             } catch (Exception exception) { failure = exception; }
         });
         thread.SetApartmentState(ApartmentState.STA);
