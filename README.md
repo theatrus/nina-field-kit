@@ -10,7 +10,7 @@ Requires **NINA 3.2.0.9001 or newer** on Windows. Built and tested against 3.2.0
 
 1. In NINA, open **Options → General → Plugin Repositories**.
 2. Add **https://nina-plugins.psf-guard.com/**.
-3. Open the **Plugin Manager**, refresh Available plugins, and install **Field Kit** (shown as NINA Field Kit in versions before 0.1.0.7).
+3. Open the **Plugin Manager**, refresh Available plugins, and install **Field Kit** (shown as NINA Field Kit in versions before 0.1.0.8).
 4. Restart NINA.
 
 The source is the [theatr.us plugin registry](https://github.com/theatrus/nina-plugins-registry). Field Kit is not yet listed in NINA's default community catalog.
