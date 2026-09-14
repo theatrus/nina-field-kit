@@ -36,6 +36,7 @@ internal sealed class LocalAlpacaServer : IAsyncDisposable {
             }
         } catch (OperationCanceledException) { }
         catch (SocketException) when (cancellation.IsCancellationRequested) { }
+        catch (ObjectDisposedException) when (cancellation.IsCancellationRequested) { }
     }
 
     private async Task HandleAsync(TcpClient client) {
@@ -75,8 +76,8 @@ internal sealed class LocalAlpacaServer : IAsyncDisposable {
     public async ValueTask DisposeAsync() {
         cancellation.Cancel();
         listener.Stop();
-        foreach (var client in clients) client.Dispose();
         await acceptLoop;
+        foreach (var client in clients) client.Dispose();
         await Task.WhenAll(handlers).WaitAsync(TimeSpan.FromSeconds(5));
         cancellation.Dispose();
     }

@@ -1,4 +1,4 @@
-NINA Field Kit 0.1.0.1, for NINA 3.2.0.9001 or newer.
+NINA Field Kit 0.1.0.2, for NINA 3.2.0.9001 or newer.
 
 This patch replaces provider-specific names, addresses, and setup guidance with generic Alpaca examples. Polling, retry, and safety behavior are unchanged.
 
