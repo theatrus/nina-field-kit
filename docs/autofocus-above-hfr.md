@@ -1,6 +1,6 @@
 # Autofocus Above HFR
 
-Status: implemented on main; not included in release 0.1.0.5.
+Available in NINA Field Kit **0.1.0.6 and newer**. Install or update through **https://nina-plugins.psf-guard.com/** and restart NINA.
 
 ## Purpose and sequence placement
 

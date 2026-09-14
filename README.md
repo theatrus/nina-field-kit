@@ -2,7 +2,7 @@
 
 ![Field Kit](src/Nina.FieldKit.Plugin/Assets/field-kit.svg)
 
-Alpaca safety monitoring for [NINA](https://nighttime-imaging.eu/). Field Kit combines required safety sources into one safe/unsafe result with background checks, configurable confirmation thresholds, and clear diagnostics.
+Alpaca safety monitoring and an absolute HFR autofocus check for [NINA](https://nighttime-imaging.eu/). Field Kit combines required safety sources into one safe/unsafe result and adds a sequence action that rejects autofocus results above your chosen HFR limit.
 
 Requires **NINA 3.2.0.9001 or newer** on Windows. Built and tested against 3.2.0.9001. Published DLLs are code-signed. Licensed under **Apache-2.0**.
 
@@ -64,6 +64,28 @@ Two tolerated misses do not promise another 90 seconds of safety after a failure
 
 The monitor reports safety to NINA. Configure and verify the desired **Advanced Sequencer response to an unsafe monitor** separately; Field Kit does not park a mount, close a roof, or stop acquisition itself.
 
+## Autofocus above a fixed HFR limit
+
+Available in **0.1.0.6 and newer**.
+
+1. Open the **Advanced Sequencer** and add **NINA Field Kit → Autofocus Above HFR** after an image or an autofocus instruction.
+2. Set **Maximum HFR** to your acceptable limit (default **1.7**).
+3. Put the action inside the imaging loop to check each iteration. It runs only when the sequence reaches it.
+
+| Latest HFR with a limit of 1.7 | Action |
+| --- | --- |
+| 1.6 or 1.7 | Skip autofocus. |
+| 3.0 | Run autofocus once, then check its result. |
+| Missing or invalid | Run autofocus to obtain a result. |
+
+The latest light/snapshot image or completed autofocus determines the value. A newer autofocus result takes precedence over an older image. After autofocus, a usable result at or below the limit succeeds; a result above the limit, missing result, or invalid result fails the instruction. **Abort on Error** is the default. NINA's normal instruction error/retry settings remain available; Field Kit does not loop indefinitely trying to reach the limit.
+
+**Autofocus uses the fitted HFR from its report**, not a separate measured post-focus verification exposure. Select **Star HFR** autofocus mode. The action uses NINA's configured autofocus provider, filter settings, and normal provider retry settings. A missing or incompatible historical autofocus report causes a new autofocus run.
+
+History is session-wide, with no filter, target, binning, or age restriction. Place the action after a measurement representative of your current setup and choose a suitable limit. The action's status box shows the decision and result; search NINA's log for **AutofocusAboveHfr** for its measurements, threshold, and outcome.
+
+See the [autofocus action guide and design](docs/autofocus-above-hfr.md) for measurement selection, failure behavior, and compatibility details.
+
 ## Status and troubleshooting
 
 - **Setup → Monitor status** shows the combined result. The main SAFE/UNSAFE line includes source retry countdowns and attempt numbers, exhausted checks, and recovery after retry.
@@ -94,6 +116,6 @@ The development tools include a standalone Alpaca fault server for scripted erro
 
 ## Design and license
 
-[Safety-monitor design](docs/alpaca-safety-monitor.md) · [Implementation notes](docs/alpaca-safety-implementation.md) · [Fault-server integration design](docs/alpaca-fault-integration-suite.md)
+[Autofocus action](docs/autofocus-above-hfr.md) · [Safety-monitor design](docs/alpaca-safety-monitor.md) · [Implementation notes](docs/alpaca-safety-implementation.md) · [Fault-server integration design](docs/alpaca-fault-integration-suite.md)
 
 Copyright 2026 NINA Field Kit contributors. [Apache License, Version 2.0](LICENSE), SPDX `Apache-2.0`. Third-party dependencies retain their own licenses.

@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+\.\d+$')]
-    [string] $Version = '0.1.0.5',
+    [string] $Version = '0.1.0.6',
     [switch] $StageOnly
 )
 $ErrorActionPreference = 'Stop'
@@ -55,11 +55,11 @@ $manifest = [ordered]@{
     License = 'Apache-2.0'
     LicenseURL = "$repository/blob/v$Version/LICENSE"
     ChangelogURL = "$repository/releases/tag/v$Version"
-    Tags = @('safety', 'alpaca', 'monitoring')
+    Tags = @('safety', 'alpaca', 'monitoring', 'autofocus')
     MinimumApplicationVersion = [ordered]@{ Major = '3'; Minor = '2'; Patch = '0'; Build = '9001' }
     Descriptions = [ordered]@{
-        ShortDescription = 'Alpaca safety monitoring for your observing session.'
-        LongDescription = 'Combines required Alpaca safety sources with background checks, bounded tolerance for missed checks, configurable confirmation thresholds, live setup, and NINA diagnostics. See the usage guide for setup and safety behavior.'
+        ShortDescription = 'Alpaca safety monitoring and an absolute HFR autofocus check.'
+        LongDescription = 'Combines required Alpaca safety sources with background checks, bounded tolerance for missed checks, configurable confirmation thresholds, live setup, and NINA diagnostics. Adds an Advanced Sequencer action that runs autofocus above a fixed HFR limit and rejects results still above the limit. See the usage guide for setup and behavior.'
         FeaturedImageURL = "https://raw.githubusercontent.com/theatrus/nina-field-kit/v$Version/src/Nina.FieldKit.Plugin/Assets/field-kit.png"
         ScreenshotURL = ''
         AltScreenshotURL = ''
