@@ -12,7 +12,7 @@ Before the next LIGHT exposure, compare the latest light/snapshot image or compl
 
 The configured NINA autofocus provider owns filter changes, equipment operations, and its normal retries. The trigger passes cancellation and progress through. A result still above the limit, invalid/non-HFR result, or null report fails through NINA's trigger failure handling. There is no internal repeat-until-good loop. A later acceptable result suppresses the next trigger check. Safety is rechecked immediately before starting autofocus.
 
-The compact template uses NINA's SequenceBlockView so the trigger retains its title, drag behavior, and menu. It displays the limit, one short help line, and status. Additional detail is in a tooltip. Threshold settings survive sequence serialization and cloning; transient results are not saved.
+The compact template uses NINA's SequenceBlockView so the trigger retains its title, drag behavior, and menu. It matches the built-in AF-after-HFR layout: a single inline limit field and right-aligned status. Help is in tooltips. Threshold settings survive sequence serialization and cloning; transient results are not saved.
 
 ## Measurement details
 

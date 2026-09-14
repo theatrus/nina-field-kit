@@ -18,7 +18,7 @@ namespace Nina.FieldKit.Plugin;
 [Export(typeof(ISequenceTrigger))]
 [ExportMetadata("Name", "Autofocus Above HFR")]
 [ExportMetadata("Description", "Refocus before the next light exposure when HFR exceeds the limit.")]
-[ExportMetadata("Icon", "AutoFocusSVG")]
+[ExportMetadata("Icon", "AutoFocusAfterHFRSVG")]
 [ExportMetadata("Category", "NINA Field Kit")]
 [JsonObject(MemberSerialization.OptIn)]
 public sealed class AutofocusAboveHfrTrigger : SequenceTrigger, IValidatable {
