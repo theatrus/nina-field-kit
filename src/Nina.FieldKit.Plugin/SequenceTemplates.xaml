@@ -21,6 +21,24 @@
             </seq:SequenceBlockView.SequenceItemContent>
         </seq:SequenceBlockView>
     </DataTemplate>
+    <DataTemplate DataType="{x:Type local:AutofocusAboveHfrTrigger}">
+        <seq:SequenceBlockView>
+            <seq:SequenceBlockView.SequenceItemContent>
+                <StackPanel Margin="6">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Maximum HFR" VerticalAlignment="Center" />
+                        <TextBox Width="70" Margin="8,0" Text="{Binding MaximumHfr, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" />
+                    </StackPanel>
+                    <TextBlock Margin="0,4,0,0" Opacity="0.75" TextWrapping="Wrap"
+                        Text="Refocus above the limit; fail if still too high."
+                        ToolTip="Uses the latest image or autofocus fit HFR. Waits for valid HFR before the next light exposure. Requires Star HFR mode." />
+                    <Border Margin="0,8,0,0" Padding="6" BorderThickness="1" BorderBrush="{DynamicResource PrimaryBrush}">
+                        <TextBlock Text="{Binding LastResult}" TextWrapping="Wrap" />
+                    </Border>
+                </StackPanel>
+            </seq:SequenceBlockView.SequenceItemContent>
+        </seq:SequenceBlockView>
+    </DataTemplate>
     <DataTemplate DataType="{x:Type local:MountHealthCheck}">
         <seq:SequenceBlockView>
             <seq:SequenceBlockView.SequenceItemContent>

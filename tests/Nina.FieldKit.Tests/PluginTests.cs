@@ -108,7 +108,7 @@ public sealed class PluginTests {
     }
 
     [Fact] public void MefDiscoversManifestAndAllInstructions() {
-        using var catalog = new TypeCatalog(typeof(FieldKitPlugin), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot), typeof(AutofocusAboveHfr));
+        using var catalog = new TypeCatalog(typeof(FieldKitPlugin), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot), typeof(AutofocusAboveHfrTrigger));
         using var container = new CompositionContainer(catalog);
         container.ComposeExportedValue(Telescope().Object);
         container.ComposeExportedValue(Mock.Of<NINA.Profile.Interfaces.IProfileService>());
@@ -116,9 +116,11 @@ public sealed class PluginTests {
         container.ComposeExportedValue(Mock.Of<ICameraMediator>());
         container.ComposeExportedValue(Mock.Of<IFilterWheelMediator>());
         container.ComposeExportedValue(Mock.Of<IFocuserMediator>());
+        container.ComposeExportedValue(Mock.Of<ISafetyMonitorMediator>());
         container.ComposeExportedValue(Mock.Of<NINA.WPF.Base.Interfaces.IAutoFocusVMFactory>());
         Assert.Single(container.GetExportedValues<IPluginManifest>());
-        Assert.Equal(3, container.GetExportedValues<ISequenceItem>().Count());
+        Assert.Equal(2, container.GetExportedValues<ISequenceItem>().Count());
+        Assert.IsType<AutofocusAboveHfrTrigger>(Assert.Single(container.GetExportedValues<NINA.Sequencer.Trigger.ISequenceTrigger>()));
         Assert.Equal("3.2.0.9001", new FieldKitPlugin().MinimumApplicationVersion.ToString());
         Assert.Equal("Apache-2.0", new FieldKitPlugin().License);
         Assert.Equal("https://www.apache.org/licenses/LICENSE-2.0", new FieldKitPlugin().LicenseURL);
@@ -157,7 +159,7 @@ public sealed class PluginTests {
             Assert.IsType<DataTemplate>(resources[new DataTemplateKey(typeof(MountHealthCheck))]);
             Assert.IsType<DataTemplate>(resources[new DataTemplateKey(typeof(CaptureEquipmentSnapshot))]);
             Assert.IsType<DataTemplate>(resources[new DataTemplateKey(typeof(AutofocusAboveHfr))]);
-            foreach (var type in new[] { typeof(AutofocusAboveHfr), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot) }) {
+            foreach (var type in new[] { typeof(AutofocusAboveHfrTrigger), typeof(AutofocusAboveHfr), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot) }) {
                 var template = (DataTemplate)resources[new DataTemplateKey(type)];
                 var block = Assert.IsType<NINA.View.Sequencer.SequenceBlockView>(template.LoadContent());
                 Assert.IsType<System.Windows.Controls.StackPanel>(block.SequenceItemContent);
@@ -166,8 +168,8 @@ public sealed class PluginTests {
                 Assert.NotNull(block.FindName("ShowMenuButton"));
                 Assert.NotNull(block.FindName("MoveUpButton"));
                 Assert.NotNull(block.FindName("MoveDownButton"));
-                if (type == typeof(AutofocusAboveHfr)) {
-                    block.DataContext = new AutofocusAboveHfr(Mock.Of<IHfrAutofocusService>()) {
+                if (type == typeof(AutofocusAboveHfrTrigger)) {
+                    block.DataContext = new AutofocusAboveHfrTrigger(Mock.Of<IHfrAutofocusService>()) {
                         Name = "Autofocus Above HFR"
                     };
                     var host = new System.Windows.Controls.Border {

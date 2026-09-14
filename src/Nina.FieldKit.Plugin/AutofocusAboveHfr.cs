@@ -19,7 +19,7 @@ public interface IHfrAutofocusService {
     Task<HfrReading?> RunAsync(IProgress<ApplicationStatus> progress, CancellationToken token);
 }
 
-[Export(typeof(ISequenceItem))]
+// Legacy instruction type retained for reading old sequences; new entries use the trigger.
 [ExportMetadata("Name", "Autofocus Above HFR")]
 [ExportMetadata("Description", "Refocus when the latest HFR exceeds the limit.")]
 [ExportMetadata("Icon", "AutoFocusSVG")]
