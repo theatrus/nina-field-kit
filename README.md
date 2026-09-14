@@ -2,7 +2,7 @@
 
 ![Field Kit](src/Nina.FieldKit.Plugin/Assets/field-kit.svg)
 
-Alpaca safety monitoring and equipment checks for [NINA](https://nighttime-imaging.eu/). Field Kit combines required safety sources into one safe/unsafe result and includes two read-only Advanced Sequencer actions: **Capture Equipment Snapshot** and **Mount Health Check**.
+Alpaca safety monitoring for [NINA](https://nighttime-imaging.eu/). Field Kit combines required safety sources into one safe/unsafe result with background checks, configurable confirmation thresholds, and clear diagnostics.
 
 Requires **NINA 3.2.0.9001 or newer** on Windows. Built and tested against 3.2.0.9001. Published DLLs are code-signed. Licensed under **Apache-2.0**.
 
@@ -72,15 +72,6 @@ The monitor reports safety to NINA. Configure and verify the desired **Advanced 
 - **Recent events** retains the latest 300 session events. Retries, missed checks, recovery, state changes, and lifecycle events are logged without enabling tracing.
 - Search NINA's log for **FieldKitSafety**. Use **Log snapshot**, **Copy report**, or **Export diagnostics** for troubleshooting. Exports omit endpoint URLs, credentials, headers, and response bodies; source labels remain included.
 
-## Sequencer equipment checks
-
-The Advanced Sequencer's **NINA Field Kit** category contains:
-
-- **Capture Equipment Snapshot**: records a mount observation and evidence quality in the NINA log.
-- **Mount Health Check**: evaluates mount connection, tracking requirements, coordinate validity, and observation consistency. Configure its requirements and NINA error behavior in the sequence.
-
-These are read-only checks. NINA mount properties may be cached: **RequireConfirmedResponse** reports Unknown when a fresh hardware response cannot be established. Tracking recovery, homing, target recovery, and automatic mount guards are planned, not included in this release.
-
 ## Build, test, and release
 
 With the .NET 8 SDK (8.0.400 or later in the 8.0 series) on Windows:
@@ -99,6 +90,6 @@ After verifying and publishing the release, copy its manifest to `manifests/n/NI
 
 ## Design and license
 
-[Safety-monitor design](docs/alpaca-safety-monitor.md) · [Implementation notes](docs/alpaca-safety-implementation.md) · [Mount checks and planned recovery](docs/design.md) · [Implementation contracts](docs/implementation.md)
+[Safety-monitor design](docs/alpaca-safety-monitor.md) · [Implementation notes](docs/alpaca-safety-implementation.md)
 
 Copyright 2026 NINA Field Kit contributors. [Apache License, Version 2.0](LICENSE), SPDX `Apache-2.0`. Third-party dependencies retain their own licenses.

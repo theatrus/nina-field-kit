@@ -4,11 +4,11 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>Nina.FieldKit.Plugin</AssemblyName>
     <AssemblyTitle>NINA Field Kit</AssemblyTitle>
-    <Description>Safety monitoring and equipment checks for your observing session.</Description>
+    <Description>Alpaca safety monitoring for your observing session.</Description>
     <ApplicationIcon>Assets/field-kit.ico</ApplicationIcon>
-    <Version>0.1.0.3</Version>
-    <AssemblyVersion>0.1.0.3</AssemblyVersion>
-    <FileVersion>0.1.0.3</FileVersion>
+    <Version>0.1.0.4</Version>
+    <AssemblyVersion>0.1.0.4</AssemblyVersion>
+    <FileVersion>0.1.0.4</FileVersion>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
