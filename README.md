@@ -90,6 +90,6 @@ After verifying and publishing the release, copy its manifest to `manifests/n/NI
 
 ## Design and license
 
-[Safety-monitor design](docs/alpaca-safety-monitor.md) · [Implementation notes](docs/alpaca-safety-implementation.md)
+[Safety-monitor design](docs/alpaca-safety-monitor.md) · [Implementation notes](docs/alpaca-safety-implementation.md) · [Proposed fault-server integration suite](docs/alpaca-fault-integration-suite.md)
 
 Copyright 2026 NINA Field Kit contributors. [Apache License, Version 2.0](LICENSE), SPDX `Apache-2.0`. Third-party dependencies retain their own licenses.
