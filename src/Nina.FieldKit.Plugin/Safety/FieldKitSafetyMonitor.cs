@@ -11,12 +11,15 @@ using NINA.Profile.Interfaces;
 
 namespace Nina.FieldKit.Plugin.Safety;
 
+public enum SafetyOutputOverride { Passthrough, Safe, Unsafe }
+
 public sealed class FieldKitSafetyMonitor : BaseINPC, ISafetyMonitor, IDisposable {
     private readonly object gate = new();
     private readonly IProfileService profiles;
     private readonly IPluginOptionsAccessor settings;
     private SafetyMonitorService? service;
     private bool disposed;
+    private SafetyOutputOverride outputOverride;
     private string status = "Disconnected";
     private readonly SafetyDiagnosticJournal journal = new();
     public TimeSpan TraceRemaining => journal.TraceRemaining;
@@ -32,6 +35,7 @@ public sealed class FieldKitSafetyMonitor : BaseINPC, ISafetyMonitor, IDisposabl
             if (name is "PollCompleted" && journal.TraceRemaining == TimeSpan.Zero) return;
             var details = JsonConvert.SerializeObject(evidence, JsonSettings);
             var level = name is "ServiceFault" or "ConnectFailed" or "TestFailed" ? "Error" : "Info";
+            if (name == "OutputOverrideChanged") level = "Warning";
             if (name == "AggregateTransition" && JObject.Parse(details).Value<bool?>("IsSafe") == false) level = "Warning";
             if (name == "EndpointTransition" && (string?)JObject.Parse(details)["endpoint"]?["Phase"] is "Faulted" or "Stale" or "GraceSafe" or "Unsafe") level = "Warning";
             var entry = journal.Add(name, details, level,
@@ -51,7 +55,8 @@ public sealed class FieldKitSafetyMonitor : BaseINPC, ISafetyMonitor, IDisposabl
         return JsonConvert.SerializeObject(new {
             timestamp = DateTimeOffset.UtcNow, pluginVersion = DriverVersion,
             ninaVersion = typeof(IProfileService).Assembly.GetName().Version?.ToString(),
-            traceRemainingSeconds = TraceRemaining.TotalSeconds, snapshot = GetSnapshot(), events = DiagnosticEvents,
+            traceRemainingSeconds = TraceRemaining.TotalSeconds, outputOverride = OutputOverride, reportedIsSafe = IsSafe,
+            snapshot = GetSnapshot(), events = DiagnosticEvents,
             revision = config?.Revision, policies = config?.Endpoints.Select(e => new {
                 e.Id, e.Label, e.Enabled, e.DeviceNumber, e.ConnectionPolicy, e.PollSeconds, e.RequestTimeoutSeconds,
                 e.AttemptsPerCycle, e.InitialBackoffSeconds, e.BackoffMultiplier, e.BackoffCapSeconds,
@@ -81,8 +86,30 @@ public sealed class FieldKitSafetyMonitor : BaseINPC, ISafetyMonitor, IDisposabl
     public string DriverVersion => typeof(FieldKitPlugin).Assembly.GetName().Version!.ToString();
     public bool HasSetupDialog => true;
     public bool Connected { get { lock (gate) return service is not null; } }
-    public bool IsSafe { get { lock (gate) return service?.Snapshot().IsSafe == true; } }
-    public string Status { get { lock (gate) return service?.Snapshot().Summary ?? status; } }
+    public bool IsSafe { get { lock (gate) return service is not null && (outputOverride switch {
+        SafetyOutputOverride.Safe => true, SafetyOutputOverride.Unsafe => false, _ => service.Snapshot().IsSafe
+    }); } }
+    public SafetyOutputOverride OutputOverride { get { lock (gate) return outputOverride; } }
+    public string Status { get { lock (gate) {
+        var snapshot = service?.Snapshot();
+        if (snapshot is null) return status;
+        return outputOverride == SafetyOutputOverride.Passthrough ? snapshot.Summary :
+            $"OVERRIDE {outputOverride.ToString().ToUpperInvariant()} — sources {(snapshot.IsSafe ? "SAFE" : "UNSAFE")}: {snapshot.Summary}";
+    } } }
+
+    public void SetOutputOverride(SafetyOutputOverride value, object expectedProfile) {
+        if (!Enum.IsDefined(value)) throw new ArgumentOutOfRangeException(nameof(value));
+        lock (gate) {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (!ReferenceEquals(expectedProfile, profiles.ActiveProfile)) throw new InvalidOperationException("Profile changed; reopen setup.");
+            if (service is null) throw new InvalidOperationException("Connect the monitor before changing its output override.");
+            if (outputOverride == value) return;
+            var previous = outputOverride;
+            outputOverride = value;
+            RecordDiagnostic("OutputOverrideChanged", new { previous, current = value, reportedIsSafe = IsSafe, sourceIsSafe = service.Snapshot().IsSafe });
+        }
+        RaiseStateChanged();
+    }
     public object ProfileIdentity => profiles.ActiveProfile;
     public IList<string> SupportedActions => Array.Empty<string>();
 
@@ -150,6 +177,10 @@ public sealed class FieldKitSafetyMonitor : BaseINPC, ISafetyMonitor, IDisposabl
         lock (gate) {
             retired = service;
             service = null; // Immediate unsafe, before waiting for HTTP cancellation.
+            if (outputOverride != SafetyOutputOverride.Passthrough) {
+                RecordDiagnostic("OutputOverrideReset", new { previous = outputOverride, reason = "Monitor disconnected" });
+                outputOverride = SafetyOutputOverride.Passthrough;
+            }
             status = "Disconnected; safety history cleared";
         }
         if (retired is not null) {
@@ -173,7 +204,7 @@ public sealed class FieldKitSafetyMonitor : BaseINPC, ISafetyMonitor, IDisposabl
     }
 
     private void RaiseStateChanged() {
-        void Raise() { RaisePropertyChanged(nameof(Connected)); RaisePropertyChanged(nameof(IsSafe)); RaisePropertyChanged(nameof(Status)); }
+        void Raise() { RaisePropertyChanged(nameof(Connected)); RaisePropertyChanged(nameof(IsSafe)); RaisePropertyChanged(nameof(Status)); RaisePropertyChanged(nameof(OutputOverride)); }
         var dispatcher = Application.Current?.Dispatcher;
         if (dispatcher is not null && !dispatcher.CheckAccess()) {
             if (!dispatcher.HasShutdownStarted) dispatcher.BeginInvoke((Action)Raise);

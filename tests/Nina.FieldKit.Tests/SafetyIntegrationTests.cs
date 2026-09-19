@@ -39,6 +39,12 @@ public sealed class SafetyIntegrationTests {
                 Assert.True(Button("Edit").IsEnabled);
                 Assert.True(Button("Save to profile").IsEnabled);
                 Assert.False(Button("Test source").IsEnabled);
+                var overrideControl = controls.OfType<ComboBox>().Single();
+                Assert.True(overrideControl.IsEnabled);
+                Assert.Equal(SafetyOutputOverride.Passthrough, overrideControl.SelectedItem);
+                overrideControl.SelectedItem = SafetyOutputOverride.Safe;
+                Assert.Equal(SafetyOutputOverride.Safe, device.OutputOverride);
+                Assert.True(device.IsSafe);
                 Button("Enable / disable").RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
                 Assert.False(((SafetyEndpointOptions)grid.SelectedItem).Enabled);
                 Assert.True(device.LoadConfiguration().Endpoints[0].Enabled);
@@ -51,6 +57,7 @@ public sealed class SafetyIntegrationTests {
                 Assert.Equal(b.Id, Assert.Single(device.LoadConfiguration().Endpoints).Id);
                 Assert.True(device.Connected);
                 window.Close();
+                Assert.Equal(SafetyOutputOverride.Safe, device.OutputOverride);
         } finally { server.DisposeAsync().AsTask().GetAwaiter().GetResult(); }
     }
     internal static Mock<IProfileService> Profiles() {
@@ -59,6 +66,55 @@ public sealed class SafetyIntegrationTests {
         var profiles = new Mock<IProfileService>();
         profiles.SetupGet(p => p.ActiveProfile).Returns(profile.Object);
         return profiles;
+    }
+
+    [Fact] public async Task OutputOverrideKeepsPollingAndRestoresCurrentSourceResult() {
+        await using var server = new LocalAlpacaServer();
+        server.SafetyResponse = _ => (200, false, null);
+        var profiles = Profiles();
+        using var device = new FieldKitSafetyMonitor(profiles.Object);
+        var configuration = new SafetyConfiguration { Endpoints = [SafetyStateTests.Options with { BaseUrl = server.BaseUrl, PollSeconds = .1 }] };
+        device.SaveConfiguration(configuration, device.ProfileIdentity);
+        Assert.Equal(SafetyOutputOverride.Passthrough, device.OutputOverride);
+        Assert.Throws<InvalidOperationException>(() => device.SetOutputOverride(SafetyOutputOverride.Safe, device.ProfileIdentity));
+        Assert.True(await device.Connect(default));
+        await SafetyServiceTests.Until(() => server.SafetyRequests >= 2);
+        Assert.False(device.IsSafe);
+        device.SetOutputOverride(SafetyOutputOverride.Safe, device.ProfileIdentity);
+        Assert.True(device.IsSafe);
+        Assert.False(device.GetSnapshot()!.IsSafe);
+        Assert.Contains("OVERRIDE SAFE", device.Status);
+        Assert.Contains("reportedIsSafe", device.ExportDiagnosticReport());
+        var requests = server.SafetyRequests;
+        await SafetyServiceTests.Until(() => server.SafetyRequests > requests);
+        server.SafetyResponse = _ => (503, false, null);
+        await SafetyServiceTests.Until(() => device.GetSnapshot()!.Endpoints[0].FailedCycles > 0);
+        Assert.True(device.IsSafe);
+        Assert.False(device.GetSnapshot()!.IsSafe);
+        device.SaveConfiguration(configuration, device.ProfileIdentity);
+        Assert.True(device.IsSafe);
+        device.SetOutputOverride(SafetyOutputOverride.Passthrough, device.ProfileIdentity);
+        Assert.False(device.IsSafe);
+        server.SafetyResponse = _ => (200, true, null);
+        await SafetyServiceTests.Until(() => device.IsSafe);
+        device.SetOutputOverride(SafetyOutputOverride.Unsafe, device.ProfileIdentity);
+        Assert.False(device.IsSafe);
+        Assert.True(device.GetSnapshot()!.IsSafe);
+        device.SetOutputOverride(SafetyOutputOverride.Passthrough, device.ProfileIdentity);
+        Assert.True(device.IsSafe);
+        Assert.Throws<InvalidOperationException>(() => device.SetOutputOverride(SafetyOutputOverride.Safe, new object()));
+        Assert.Throws<ArgumentOutOfRangeException>(() => device.SetOutputOverride((SafetyOutputOverride)99, device.ProfileIdentity));
+        device.SetOutputOverride(SafetyOutputOverride.Safe, device.ProfileIdentity);
+        device.Disconnect();
+        Assert.False(device.IsSafe);
+        Assert.Equal(SafetyOutputOverride.Passthrough, device.OutputOverride);
+        Assert.True(await device.Connect(default));
+        device.SetOutputOverride(SafetyOutputOverride.Safe, device.ProfileIdentity);
+        profiles.Raise(p => p.BeforeProfileChanging += null, EventArgs.Empty);
+        Assert.False(device.IsSafe);
+        Assert.Equal(SafetyOutputOverride.Passthrough, device.OutputOverride);
+        Assert.Contains(device.DiagnosticEvents, e => e.Event == "OutputOverrideChanged");
+        Assert.Contains(device.DiagnosticEvents, e => e.Event == "OutputOverrideReset");
     }
 
     [Fact] public async Task PersistentTcpSocketIsRenewedAfterConfiguredLifetime() {

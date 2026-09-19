@@ -33,6 +33,9 @@ public sealed class SafetySetupWindow : Window {
     private readonly List<Button> selectedButtons = new();
     private readonly Button saveButton;
     private readonly Button testButton;
+    private readonly ComboBox outputOverride = new() { MinWidth = 145, Margin = new Thickness(12, 0, 0, 0),
+        ItemsSource = new[] { SafetyOutputOverride.Safe, SafetyOutputOverride.Passthrough, SafetyOutputOverride.Unsafe } };
+    private bool refreshingOverride;
 
 
     public SafetySetupWindow(FieldKitSafetyMonitor device) {
@@ -51,6 +54,17 @@ public sealed class SafetySetupWindow : Window {
         statusContent.Children.Add(new TextBlock { Text = "MONITOR STATUS", FontSize = 12, FontWeight = FontWeights.SemiBold });
         live.FontSize = 16;
         statusContent.Children.Add(new ScrollViewer { Content = live, MaxHeight = 95, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+        var overrideRow = new StackPanel { Orientation = Orientation.Horizontal };
+        overrideRow.Children.Add(new TextBlock { Text = "Output override", VerticalAlignment = VerticalAlignment.Center });
+        overrideRow.Children.Add(outputOverride);
+        statusContent.Children.Add(overrideRow);
+        statusContent.Children.Add(SafetyDialogLayout.Note("Applies immediately. Safe forces NINA to see safe even if sources are unsafe or unavailable. Passthrough uses the source result; Unsafe forces unsafe. Polling continues. Resets on disconnect; not saved to the profile."));
+        outputOverride.SelectionChanged += (_, _) => {
+            if (refreshingOverride || outputOverride.SelectedItem is not SafetyOutputOverride value) return;
+            try { device.SetOutputOverride(value, profileIdentity); }
+            catch (InvalidOperationException exception) { notice.Text = exception.Message; }
+            RefreshStatus();
+        };
         var statusCard = new Border { Child = statusContent, Padding = new Thickness(14, 10, 14, 10), Margin = new Thickness(0, 14, 0, 16) };
         statusCard.SetResourceReference(Border.BackgroundProperty, "SecondaryBackgroundBrush");
         statusCard.SetResourceReference(Border.BorderBrushProperty, "BorderBrush");
@@ -113,7 +127,7 @@ public sealed class SafetySetupWindow : Window {
             catch (System.Runtime.InteropServices.ExternalException) { notice.Text = "Clipboard is busy. Try again or export the report."; }
         });
         AddButton(export, "Log snapshot", () => {
-            device.RecordDiagnostic("ManualSnapshot", new { snapshot = device.GetSnapshot() });
+            device.RecordDiagnostic("ManualSnapshot", new { outputOverride = device.OutputOverride, reportedIsSafe = device.IsSafe, snapshot = device.GetSnapshot() });
             notice.Text = "Current snapshot written to the NINA log. Search for FieldKitSafety.";
         });
         DockPanel.SetDock(export, Dock.Bottom); status.Children.Add(export);
@@ -167,6 +181,11 @@ public sealed class SafetySetupWindow : Window {
         foreach (var button in selectedButtons) button.IsEnabled = editable && Selected is not null;
         saveButton.IsEnabled = editable;
         testButton.IsEnabled = editable && !device.Connected && Selected is not null;
+        refreshingOverride = true;
+        try {
+            outputOverride.IsEnabled = sameProfile && device.Connected;
+            outputOverride.SelectedItem = device.OutputOverride;
+        } finally { refreshingOverride = false; }
 
 
         editStatus.Text = !sameProfile ? "Profile changed. Close and reopen setup." : testing ? "Source test in progress…" : device.Connected
@@ -217,7 +236,7 @@ public sealed class SafetySetupWindow : Window {
         UpdateControls();
         var current = device.GetSnapshot();
         live.Text = current is null ? "DISCONNECTED — no live safety monitoring" :
-            (current.IsSafe ? "SAFE — " : "UNSAFE — ") + current.Summary;
+            (device.IsSafe ? "SAFE — " : "UNSAFE — ") + device.Status;
         var remaining = device.TraceRemaining;
         ((TextBlock)traceButton.Content).Text = remaining > TimeSpan.Zero ? "Stop poll tracing" : "Trace polls for 5 minutes";
         traceStatus.Text = remaining > TimeSpan.Zero

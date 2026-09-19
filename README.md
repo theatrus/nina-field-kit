@@ -29,6 +29,8 @@ Every enabled source is required: all must satisfy their safety policy for the c
 
 Sources can be added, edited, removed, or disabled while connected. **Save to profile** applies the draft live. The prior result is retained while the new configuration refreshes, bounded by the original safe-evidence expiry; repeated edits cannot extend it. New confirmed unsafe/error results can withdraw safety sooner. A separate **Test source** is available while disconnected and does not update live monitoring.
 
+While connected, **Setup → Output override** lets you temporarily choose **Safe**, **Passthrough** (the default), or **Unsafe**. Selection takes effect immediately, without saving. Safe reports safe to NINA even when sources report unsafe or fail; Unsafe reports unsafe regardless of the sources. Passthrough restores the current combined source result. Background polling and recovery tracking continue in every mode. The status line identifies an active override and shows the actual source result; override changes also appear in the NINA log and diagnostic reports. Use this while adjusting settings, then return to Passthrough. Closing Setup or saving source settings retains the override, but disconnecting, changing profiles, suspending/resuming, or restarting clears it. It is not saved to the profile.
+
 ### Example source
 
 For an Alpaca SafetyMonitor on your local network:
