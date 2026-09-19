@@ -1,11 +1,11 @@
-Field Kit 0.1.0.9, for NINA 3.2.0.9001 or newer.
+Field Kit 0.1.0.10, for NINA 3.2.0.9001 or newer.
 
-**AF above HFR** is now an Advanced Sequencer trigger. Before the next light exposure, it runs autofocus when the latest image or completed autofocus HFR exceeds your chosen absolute limit. It defers when the connected safety monitor reports unsafe or NINA's meridian-flip scheduling check requires it. An autofocus result that remains above the limit fails through NINA's trigger failure handling.
+Safety Monitor Setup now includes an immediate **Output override** with three choices: **Safe**, **Passthrough**, and **Unsafe**. Use it while adjusting source settings without changing the output sent to NINA. Safe forces a safe output even when sources are unsafe or unavailable; Unsafe forces unsafe; Passthrough uses the current combined source result.
 
-The compact layout follows NINA's built-in HFR trigger, with a draggable title, inline Maximum HFR field, and status on the right. New triggers start blank and require an explicit positive limit; clearing the field disables the trigger. Saved explicit limits are preserved.
+Background polling and recovery tracking continue in every mode. The status line identifies active overrides and the actual source result. Changes are recorded in the NINA log and diagnostic reports.
 
-Replace the old **Autofocus Above HFR** sequence instruction with **NINA Field Kit → AF above HFR** in your imaging container's **Triggers**. Existing instructions are not automatically converted. See the [usage guide](https://github.com/theatrus/nina-field-kit/blob/v0.1.0.9/docs/autofocus-above-hfr.md) for measurement details and setup.
+The override is session-only: closing Setup or saving settings retains it, while disconnecting, changing profiles, suspending/resuming, or restarting resets it to Passthrough. Return to Passthrough when finished adjusting settings.
 
-Published DLLs are code-signed. Release validation runs the automated test suite and the real-time default safety-policy acceptance check.
+Published DLLs are code-signed. Release validation includes the automated test suite and the real-time default safety-policy acceptance check.
 
 Update **Field Kit** through **https://nina-plugins.psf-guard.com/** and restart NINA.
