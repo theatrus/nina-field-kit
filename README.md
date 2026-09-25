@@ -82,6 +82,12 @@ If the new autofocus fit remains above the limit or is unusable, the trigger fai
 
 Replace the old sequence instruction with this trigger when updating; saved instructions are not automatically moved into a container's Triggers. See the [trigger guide](docs/autofocus-above-hfr.md).
 
+## Slew to sky-flat point
+
+In the Advanced Sequencer, add **NINA Field Kit → Slew to sky-flat point** before your flat exposures. This is SkyFlats' null-point instruction: **75° altitude, opposite the Sun**, calculated at execution using the observing location in your NINA profile. It enables tracking after a successful slew. The mount must already be connected and unparked.
+
+Includes the [SkyFlats mount-compatibility fix](https://github.com/photon1503/SkyFlats/pull/4): mounts without native Alt/Az slewing use NINA's RA/Dec conversion. Failed slews or failure to enable tracking fail the instruction. Cancellation is passed through to NINA. This instruction only positions the mount; it does not acquire flats or adjust exposures. No SkyFlats installation is required. See [third-party notices](THIRD-PARTY-NOTICES.md) for the imported files' MPL-2.0 license.
+
 ## Status and troubleshooting
 
 - **Setup → Monitor status** shows the combined result. The main SAFE/UNSAFE line includes source retry countdowns and attempt numbers, exhausted checks, and recovery after retry.

@@ -21,6 +21,7 @@ if ($StageOnly) {
         Copy-Item -LiteralPath $built -Destination $package
     }
     Copy-Item -LiteralPath (Join-Path $repo 'LICENSE'), (Join-Path $repo 'README.md') -Destination $package
+    Copy-Item -LiteralPath (Join-Path $repo 'THIRD-PARTY-NOTICES.md'), (Join-Path $repo 'licenses/SkyFlats-MPL-2.0.txt') -Destination $package
     return
 }
 
@@ -34,7 +35,7 @@ foreach ($dll in $dlls) {
     }
     if ([Reflection.AssemblyName]::GetAssemblyName($path).Version.ToString() -ne $Version) { throw "Wrong version in $dll" }
 }
-$expectedFiles = @($dlls) + @('LICENSE', 'README.md')
+$expectedFiles = @($dlls) + @('LICENSE', 'README.md', 'THIRD-PARTY-NOTICES.md', 'SkyFlats-MPL-2.0.txt')
 $actualFiles = @(Get-ChildItem -LiteralPath $package -Recurse -File)
 if ($actualFiles.Count -ne $expectedFiles.Count -or @($actualFiles | Where-Object { $_.Name -notin $expectedFiles -or $_.DirectoryName -ne $package }).Count) {
     throw 'Release package contains unexpected files.'
@@ -59,7 +60,7 @@ $manifest = [ordered]@{
     MinimumApplicationVersion = [ordered]@{ Major = '3'; Minor = '2'; Patch = '0'; Build = '9001' }
     Descriptions = [ordered]@{
         ShortDescription = 'Multi-source Alpaca safety monitoring and autofocus HFR limits.'
-        LongDescription = 'Combines multiple Alpaca safety sources into one NINA safety result, with background polling, configurable retries, live setup, and clear diagnostics. Includes AF above HFR: a trigger that runs autofocus before the next light exposure when the latest HFR exceeds your chosen limit and rejects autofocus fits that remain above it.'
+        LongDescription = 'Combines multiple Alpaca safety sources into one NINA safety result, with background polling, configurable retries, live setup, and clear diagnostics. Includes Slew to sky-flat point (75 degrees altitude opposite the Sun) and AF above HFR: a trigger that runs autofocus before the next light exposure when the latest HFR exceeds your chosen limit and rejects autofocus fits that remain above it.'
         FeaturedImageURL = "https://raw.githubusercontent.com/theatrus/nina-field-kit/v$Version/src/Nina.FieldKit.Plugin/Assets/field-kit.png"
         ScreenshotURL = ''
         AltScreenshotURL = ''

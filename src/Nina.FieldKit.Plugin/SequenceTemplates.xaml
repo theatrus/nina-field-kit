@@ -3,6 +3,19 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="clr-namespace:Nina.FieldKit.Plugin"
     xmlns:seq="clr-namespace:NINA.View.Sequencer;assembly=NINA.Sequencer">
+    <DataTemplate DataType="{x:Type local:SlewToSkyFlatPoint}">
+        <seq:SequenceBlockView>
+            <seq:SequenceBlockView.SequenceItemContent>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="75° altitude, opposite Sun" VerticalAlignment="Center"
+                        ToolTip="Calculated at execution using your NINA profile location. Requires an unparked mount; enables tracking after the slew." />
+                </StackPanel>
+            </seq:SequenceBlockView.SequenceItemContent>
+            <seq:SequenceBlockView.SequenceItemProgressContent>
+                <TextBlock Text="{Binding LastResult}" VerticalAlignment="Center" />
+            </seq:SequenceBlockView.SequenceItemProgressContent>
+        </seq:SequenceBlockView>
+    </DataTemplate>
     <DataTemplate DataType="{x:Type local:AutofocusAboveHfr}">
         <seq:SequenceBlockView>
             <seq:SequenceBlockView.SequenceItemContent>
