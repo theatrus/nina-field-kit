@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+\.\d+$')]
-    [string] $Version = '0.1.0.10',
+    [string] $Version = '0.1.0.11',
     [switch] $StageOnly
 )
 $ErrorActionPreference = 'Stop'
