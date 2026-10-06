@@ -60,6 +60,8 @@ The address above is a documentation placeholder. Replace it with your server's 
 | Request timeout | 1 s | Maximum time for each request attempt. |
 | HTTP connection renewal | 1,800 s | Maximum reuse age of pooled HTTP connections. |
 
+Pooled sockets also enable TCP keepalive: probes start after 15 seconds idle, with a 5-second interval and three unanswered probes before TCP gives up. These transport probes do not refresh safety evidence or replace normal HTTP polling and request timeouts. Pool idle expiry remains 30 seconds and maximum connection reuse remains 30 minutes.
+
 Temporary network/server errors retry with randomized, increasing delays. **Advanced → Retry tuning** controls attempts, initial delay (0.5 s), multiplier (2), and cap (30 s). Server `Retry-After` can require a longer delay. Permanent errors, including invalid response data and authentication failures, withdraw safety immediately and use slower probes.
 
 Two tolerated misses do not promise another 90 seconds of safety after a failure: the age limit runs from the last safe request and continues during retries. A retry that succeeds avoids a missed check, but any failed attempt resets return-to-safe confirmation progress. Explicit unsafe readings use their own threshold.
