@@ -3,13 +3,14 @@ namespace Nina.FieldKit.Core.Safety;
 public enum ConnectionPolicy { ExternallyManaged, Managed }
 
 public sealed record SafetyEndpointOptions {
+    public const double DefaultPollSeconds = 30;
     public Guid Id { get; init; } = Guid.NewGuid();
     public string Label { get; init; } = "Safety source";
     public bool Enabled { get; init; } = true;
     public string BaseUrl { get; init; } = "http://localhost:11111";
     public int DeviceNumber { get; init; }
     public ConnectionPolicy ConnectionPolicy { get; init; }
-    public double PollSeconds { get; init; } = 30;
+    public double PollSeconds { get; init; } = DefaultPollSeconds;
     public double RequestTimeoutSeconds { get; init; } = 1;
     public int AttemptsPerCycle { get; init; } = 3;
     public double InitialBackoffSeconds { get; init; } = .5;
