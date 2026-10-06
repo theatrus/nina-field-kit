@@ -31,7 +31,7 @@ public sealed class AlpacaSafetyClient : ISafetyEndpointClient {
         UseCookies = false,
         Credentials = null,
         PooledConnectionLifetime = TimeSpan.FromSeconds(options.ConnectionLifetimeSeconds),
-        PooledConnectionIdleTimeout = TimeSpan.FromSeconds(Math.Min(30, options.ConnectionLifetimeSeconds)),
+        PooledConnectionIdleTimeout = TimeSpan.FromSeconds(Math.Min(2 * SafetyEndpointOptions.DefaultPollSeconds, options.ConnectionLifetimeSeconds)),
         MaxConnectionsPerServer = 1,
         MaxResponseHeadersLength = 16,
         ConnectTimeout = TimeSpan.FromSeconds(options.RequestTimeoutSeconds)

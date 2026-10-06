@@ -189,7 +189,7 @@ public sealed class AlpacaClientTests {
     [Fact] public void HttpPoolHasFiniteRenewalNoRedirectsOrCookieCredentials() {
         using var handler = AlpacaSafetyClient.CreateHandler(SafetyStateTests.Options);
         Assert.Equal(TimeSpan.FromMinutes(30), handler.PooledConnectionLifetime);
-        Assert.Equal(TimeSpan.FromSeconds(30), handler.PooledConnectionIdleTimeout);
+        Assert.Equal(TimeSpan.FromSeconds(60), handler.PooledConnectionIdleTimeout);
         Assert.False(handler.AllowAutoRedirect);
         Assert.False(handler.UseCookies);
         Assert.Null(handler.Credentials);

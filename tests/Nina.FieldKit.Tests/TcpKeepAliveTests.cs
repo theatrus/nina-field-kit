@@ -9,6 +9,6 @@ public sealed class TcpKeepAliveTests {
         // ASCOM.Alpaca leaves TCP keepalive to the framework; no socket override.
         Assert.Null(handler.ConnectCallback);
         Assert.Equal(TimeSpan.FromMinutes(30), handler.PooledConnectionLifetime);
-        Assert.Equal(TimeSpan.FromSeconds(30), handler.PooledConnectionIdleTimeout);
+        Assert.Equal(TimeSpan.FromSeconds(60), handler.PooledConnectionIdleTimeout);
     }
 }
