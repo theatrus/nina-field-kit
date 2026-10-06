@@ -34,25 +34,9 @@ public sealed class AlpacaSafetyClient : ISafetyEndpointClient {
         PooledConnectionIdleTimeout = TimeSpan.FromSeconds(Math.Min(30, options.ConnectionLifetimeSeconds)),
         MaxConnectionsPerServer = 1,
         MaxResponseHeadersLength = 16,
-        ConnectTimeout = TimeSpan.FromSeconds(options.RequestTimeoutSeconds),
-        ConnectCallback = ConnectWithKeepAliveAsync
+        ConnectTimeout = TimeSpan.FromSeconds(options.RequestTimeoutSeconds)
         // Default HTTPS certificate validation is deliberately retained.
     };
-
-    private static async ValueTask<Stream> ConnectWithKeepAliveAsync(SocketsHttpConnectionContext context, CancellationToken token) {
-        var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
-        try {
-            socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
-            socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveTime, 15);
-            socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveInterval, 5);
-            socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveRetryCount, 3);
-            await socket.ConnectAsync(context.DnsEndPoint, token).ConfigureAwait(false);
-            return new NetworkStream(socket, ownsSocket: true);
-        } catch {
-            socket.Dispose();
-            throw;
-        }
-    }
 
     public AlpacaSafetyClient(SafetyEndpointOptions options, TimeProvider? clock = null, HttpMessageHandler? handler = null) {
         options.Validate();

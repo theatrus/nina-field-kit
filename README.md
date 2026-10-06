@@ -60,7 +60,7 @@ The address above is a documentation placeholder. Replace it with your server's 
 | Request timeout | 1 s | Maximum time for each request attempt. |
 | HTTP connection renewal | 1,800 s | Maximum reuse age of pooled HTTP connections. |
 
-Pooled sockets also enable TCP keepalive: probes start after 15 seconds idle, with a 5-second interval and three unanswered probes before TCP gives up. These transport probes do not refresh safety evidence or replace normal HTTP polling and request timeouts. Pool idle expiry remains 30 seconds and maximum connection reuse remains 30 minutes.
+Like the ASCOM Alpaca client, Field Kit leaves TCP keepalive probe settings at the framework defaults; it does not explicitly enable TCP probes. HTTP connections are still pooled and reused, with a 30-second idle expiry and a maximum reuse age of 30 minutes. Normal polling and request timeouts determine safety freshness.
 
 Temporary network/server errors retry with randomized, increasing delays. **Advanced → Retry tuning** controls attempts, initial delay (0.5 s), multiplier (2), and cap (30 s). Server `Retry-After` can require a longer delay. Permanent errors, including invalid response data and authentication failures, withdraw safety immediately and use slower probes.
 
