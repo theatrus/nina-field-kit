@@ -22,6 +22,7 @@ public sealed class AlpacaClientTests {
             Requests.Enqueue((request.Method.Method, request.RequestUri!.AbsolutePath, parameters));
             Assert.True(request.Headers.CacheControl?.NoCache);
             Assert.True(request.Headers.CacheControl?.NoStore);
+            Assert.Equal("keep-alive", Assert.Single(request.Headers.Connection));
             return Respond is null ? Reply(id, request.RequestUri.AbsolutePath.EndsWith("interfaceversion") ? 1 : true) : await Respond(request, id, token);
         }
     }

@@ -44,6 +44,7 @@ public sealed class AlpacaSafetyClient : ISafetyEndpointClient {
         this.clock = clock ?? TimeProvider.System;
         http = new HttpClient(handler ?? CreateHandler(options), true) { Timeout = Timeout.InfiniteTimeSpan };
         http.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
+        http.DefaultRequestHeaders.Connection.Add("keep-alive");
     }
 
     private double Now => (double)clock.GetTimestamp() / clock.TimestampFrequency;
