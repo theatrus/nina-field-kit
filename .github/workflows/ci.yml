@@ -64,7 +64,7 @@ jobs:
           $pluginOutput = 'src/Nina.FieldKit.Plugin/bin/Release/net8.0-windows'
           $artifactDirectory = 'artifacts/plugin/Nina.FieldKit'
           New-Item -ItemType Directory -Path $artifactDirectory -Force | Out-Null
-          Copy-Item -LiteralPath "$pluginOutput/Nina.FieldKit.Plugin.dll", "$pluginOutput/Nina.FieldKit.Core.dll", 'LICENSE', 'README.md' -Destination $artifactDirectory
+          Copy-Item -LiteralPath "$pluginOutput/Nina.FieldKit.Plugin.dll", "$pluginOutput/Nina.FieldKit.Core.dll", 'LICENSE', 'README.md', 'THIRD-PARTY-NOTICES.md', 'licenses/SkyFlats-MPL-2.0.txt' -Destination $artifactDirectory
 
       - name: Upload development plugin
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
