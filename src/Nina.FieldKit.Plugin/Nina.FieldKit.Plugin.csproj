@@ -4,7 +4,7 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>Nina.FieldKit.Plugin</AssemblyName>
     <AssemblyTitle>Field Kit</AssemblyTitle>
-    <Description>Combines multiple Alpaca safety sources into one NINA safety result, with background polling, configurable retries, live setup, and clear diagnostics. Includes Slew to sky-flat point (75 degrees altitude opposite the Sun) and AF above HFR: a trigger that runs autofocus before the next light exposure when the latest HFR exceeds your chosen limit and rejects autofocus fits that remain above it.</Description>
+    <Description>Combines multiple Alpaca safety sources into one NINA safety result, with background polling, configurable retries, live setup, and clear diagnostics. Includes Slew to sky-flat point (75 degrees altitude opposite the Sun), AF above HFR to enforce your chosen autofocus limit, and temperature compensation after light frames using a measured steps-per-degree slope.</Description>
     <ApplicationIcon>Assets/field-kit.ico</ApplicationIcon>
     <IsPackable>false</IsPackable>
   </PropertyGroup>

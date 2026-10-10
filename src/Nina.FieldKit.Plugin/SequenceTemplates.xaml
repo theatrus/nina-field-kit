@@ -3,6 +3,22 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="clr-namespace:Nina.FieldKit.Plugin"
     xmlns:seq="clr-namespace:NINA.View.Sequencer;assembly=NINA.Sequencer">
+    <DataTemplate DataType="{x:Type local:TemperatureCompensationTrigger}">
+        <seq:SequenceBlockView>
+            <seq:SequenceBlockView.SequenceItemContent>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Steps / °C" VerticalAlignment="Center" />
+                    <TextBox MinWidth="60" Margin="5,0,0,0" VerticalAlignment="Center" TextAlignment="Right"
+                        Text="{Binding StepsPerDegree, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}"
+                        ToolTip="Enter your measured signed slope. Positive increases position as temperature rises; negative decreases it. Uses the focuser temperature and NINA's relative compensation baseline." />
+                </StackPanel>
+            </seq:SequenceBlockView.SequenceItemContent>
+            <seq:SequenceBlockView.SequenceItemProgressContent>
+                <TextBlock Text="{Binding LastResult}" VerticalAlignment="Center" MaxWidth="240"
+                    TextTrimming="CharacterEllipsis" ToolTip="{Binding LastResult}" />
+            </seq:SequenceBlockView.SequenceItemProgressContent>
+        </seq:SequenceBlockView>
+    </DataTemplate>
     <DataTemplate DataType="{x:Type local:SlewToSkyFlatPoint}">
         <seq:SequenceBlockView>
             <seq:SequenceBlockView.SequenceItemContent>

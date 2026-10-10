@@ -55,6 +55,7 @@ jobs:
             TestResults/
             artifacts/safety-*.png
             artifacts/autofocus-sequence-item.png
+            artifacts/temperature-compensation-trigger.png
             artifacts/fault-tests/
           if-no-files-found: warn
           retention-days: 14

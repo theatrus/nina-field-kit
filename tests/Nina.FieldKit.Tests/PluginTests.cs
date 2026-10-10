@@ -108,7 +108,7 @@ public sealed class PluginTests {
     }
 
     [Fact] public void MefDiscoversManifestAndAllInstructions() {
-        using var catalog = new TypeCatalog(typeof(FieldKitPlugin), typeof(SlewToSkyFlatPoint), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot), typeof(AutofocusAboveHfrTrigger));
+        using var catalog = new TypeCatalog(typeof(FieldKitPlugin), typeof(SlewToSkyFlatPoint), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot), typeof(AutofocusAboveHfrTrigger), typeof(TemperatureCompensationTrigger));
         using var container = new CompositionContainer(catalog);
         container.ComposeExportedValue(Telescope().Object);
         container.ComposeExportedValue(Mock.Of<NINA.Profile.Interfaces.IProfileService>());
@@ -120,7 +120,10 @@ public sealed class PluginTests {
         container.ComposeExportedValue(Mock.Of<NINA.WPF.Base.Interfaces.IAutoFocusVMFactory>());
         Assert.Single(container.GetExportedValues<IPluginManifest>());
         Assert.Equal(3, container.GetExportedValues<ISequenceItem>().Count());
-        Assert.IsType<AutofocusAboveHfrTrigger>(Assert.Single(container.GetExportedValues<NINA.Sequencer.Trigger.ISequenceTrigger>()));
+        var triggers = container.GetExportedValues<NINA.Sequencer.Trigger.ISequenceTrigger>().ToArray();
+        Assert.Equal(2, triggers.Length);
+        Assert.Contains(triggers, trigger => trigger is AutofocusAboveHfrTrigger);
+        Assert.Contains(triggers, trigger => trigger is TemperatureCompensationTrigger);
         Assert.Equal("3.2.0.9001", new FieldKitPlugin().MinimumApplicationVersion.ToString());
         Assert.Equal("Apache-2.0", new FieldKitPlugin().License);
         Assert.Equal("https://www.apache.org/licenses/LICENSE-2.0", new FieldKitPlugin().LicenseURL);
@@ -159,7 +162,7 @@ public sealed class PluginTests {
             Assert.IsType<DataTemplate>(resources[new DataTemplateKey(typeof(MountHealthCheck))]);
             Assert.IsType<DataTemplate>(resources[new DataTemplateKey(typeof(CaptureEquipmentSnapshot))]);
             Assert.IsType<DataTemplate>(resources[new DataTemplateKey(typeof(AutofocusAboveHfr))]);
-            foreach (var type in new[] { typeof(SlewToSkyFlatPoint), typeof(AutofocusAboveHfrTrigger), typeof(AutofocusAboveHfr), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot) }) {
+            foreach (var type in new[] { typeof(SlewToSkyFlatPoint), typeof(TemperatureCompensationTrigger), typeof(AutofocusAboveHfrTrigger), typeof(AutofocusAboveHfr), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot) }) {
                 var template = (DataTemplate)resources[new DataTemplateKey(type)];
                 var block = Assert.IsType<NINA.View.Sequencer.SequenceBlockView>(template.LoadContent());
                 Assert.IsType<System.Windows.Controls.StackPanel>(block.SequenceItemContent);
@@ -168,10 +171,10 @@ public sealed class PluginTests {
                 Assert.NotNull(block.FindName("ShowMenuButton"));
                 Assert.NotNull(block.FindName("MoveUpButton"));
                 Assert.NotNull(block.FindName("MoveDownButton"));
-                if (type == typeof(AutofocusAboveHfrTrigger)) {
-                    block.DataContext = new AutofocusAboveHfrTrigger(Mock.Of<IHfrAutofocusService>()) {
-                        Name = "AF above HFR"
-                    };
+                if (type == typeof(AutofocusAboveHfrTrigger) || type == typeof(TemperatureCompensationTrigger)) {
+                    block.DataContext = type == typeof(AutofocusAboveHfrTrigger)
+                        ? new AutofocusAboveHfrTrigger(Mock.Of<IHfrAutofocusService>()) { Name = "AF above HFR" }
+                        : new TemperatureCompensationTrigger(Mock.Of<IFocuserMediator>(), Mock.Of<ISafetyMonitorMediator>()) { Name = "Temperature compensation after frame" };
                     var host = new System.Windows.Controls.Border {
                         Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(30, 30, 30)),
                         Child = block, Padding = new Thickness(8)
@@ -185,7 +188,8 @@ public sealed class PluginTests {
                     encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
                     var directory = System.IO.Path.GetFullPath(System.IO.Path.Combine(AppContext.BaseDirectory, "../../../../../artifacts"));
                     System.IO.Directory.CreateDirectory(directory);
-                    using var file = System.IO.File.Create(System.IO.Path.Combine(directory, "autofocus-sequence-item.png"));
+                    var filename = type == typeof(AutofocusAboveHfrTrigger) ? "autofocus-sequence-item.png" : "temperature-compensation-trigger.png";
+                    using var file = System.IO.File.Create(System.IO.Path.Combine(directory, filename));
                     encoder.Save(file);
                 }
             }
