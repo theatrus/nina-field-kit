@@ -3,6 +3,36 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="clr-namespace:Nina.FieldKit.Plugin"
     xmlns:seq="clr-namespace:NINA.View.Sequencer;assembly=NINA.Sequencer">
+    <DataTemplate DataType="{x:Type local:SaveAutofocusReference}">
+        <seq:SequenceBlockView>
+            <seq:SequenceBlockView.SequenceItemContent>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="After startup autofocus" VerticalAlignment="Center"
+                        ToolTip="Save the latest successful autofocus for this NINA profile, focuser and filter. Place immediately after Run Autofocus, with its filter selected." />
+                </StackPanel>
+            </seq:SequenceBlockView.SequenceItemContent>
+            <seq:SequenceBlockView.SequenceItemProgressContent>
+                <TextBlock Text="{Binding LastResult}" VerticalAlignment="Center" MaxWidth="240"
+                    TextTrimming="CharacterEllipsis" ToolTip="{Binding LastResult}" />
+            </seq:SequenceBlockView.SequenceItemProgressContent>
+        </seq:SequenceBlockView>
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type local:RestoreAutofocusReference}">
+        <seq:SequenceBlockView>
+            <seq:SequenceBlockView.SequenceItemContent>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Steps / °C" VerticalAlignment="Center" />
+                    <TextBox MinWidth="60" Margin="5,0,0,0" VerticalAlignment="Center" TextAlignment="Right"
+                        Text="{Binding StepsPerDegree, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}"
+                        ToolTip="Measured signed slope. Restore saved position + slope × (current temperature − saved temperature), then run autofocus. A negative slope increases position as temperature falls." />
+                </StackPanel>
+            </seq:SequenceBlockView.SequenceItemContent>
+            <seq:SequenceBlockView.SequenceItemProgressContent>
+                <TextBlock Text="{Binding LastResult}" VerticalAlignment="Center" MaxWidth="240"
+                    TextTrimming="CharacterEllipsis" ToolTip="{Binding LastResult}" />
+            </seq:SequenceBlockView.SequenceItemProgressContent>
+        </seq:SequenceBlockView>
+    </DataTemplate>
     <DataTemplate DataType="{x:Type local:TemperatureCompensationTrigger}">
         <seq:SequenceBlockView>
             <seq:SequenceBlockView.SequenceItemContent>

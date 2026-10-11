@@ -25,6 +25,8 @@ The trigger checks temperature after each completed light frame. After a success
 
 ## Target Scheduler
 
+To seed the focuser before the next night's initial autofocus, use the separate [Save/Restore autofocus reference instructions](autofocus-reference.md) around your once-per-night startup AF. The after-frame trigger does not persist a startup position.
+
 For Field Kit's trigger, add it to the **Triggers** section of the **Sequential Instruction Set containing Target Scheduler Container**. NINA forwards after-instruction trigger checks through the parent containers, so the trigger sees completed light exposures inside the scheduler. It does not depend on target coordinates. Keep your normal startup autofocus and other desired autofocus triggers.
 
 You can use NINA's existing instruction today instead:
