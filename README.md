@@ -2,7 +2,7 @@
 
 ![Field Kit](src/Nina.FieldKit.Plugin/Assets/field-kit.svg)
 
-Alpaca safety monitoring and an absolute HFR autofocus check for [NINA](https://nighttime-imaging.eu/). Field Kit combines required safety sources into one safe/unsafe result and adds an autofocus trigger that rejects autofocus results above your chosen HFR limit.
+Alpaca safety monitoring and focus tools for [NINA](https://nighttime-imaging.eu/). Field Kit combines required safety sources into one safe/unsafe result, enforces your chosen autofocus HFR limit, compensates focus between light frames, and saves temperature-aware autofocus references for the next night's startup.
 
 Requires **NINA 3.2.0.9001 or newer** on Windows. Built and tested against 3.2.0.9001. Published DLLs are code-signed. Licensed under **Apache-2.0**.
 
@@ -84,6 +84,30 @@ If the new autofocus fit remains above the limit or is unusable, the trigger fai
 
 Replace the old sequence instruction with this trigger when updating; saved instructions are not automatically moved into a container's Triggers. See the [trigger guide](docs/autofocus-above-hfr.md).
 
+## Temperature compensation after a frame
+
+In development for the next release. In the Advanced Sequencer, add **NINA Field Kit → Temperature compensation after frame** to your imaging container's **Triggers**. Enter your measured, signed **Steps / °C** slope; it starts blank. Run autofocus before imaging to establish focus. The focuser must report temperature.
+
+After each completed light frame, the trigger uses NINA's relative temperature-compensation method to move the focuser and wait for settling before the sequence continues. Positive slopes increase position as temperature rises; negative slopes decrease it. It adjusts position without running a full autofocus. NINA maintains the temperature baseline and fractional-step remainder, and resets the baseline after successful autofocus or manual focusing.
+
+Unchanged temperatures skip repeated adjustments. An unsafe connected safety monitor, a moving/settling focuser, or hardware temperature compensation prevents a move. Disable hardware temperature compensation and other software temperature-compensation instructions when using this trigger. The trigger shows the last temperature and actual step adjustment; search the NINA log for **TemperatureCompensationTrigger**. Movement errors use NINA's trigger failure handling.
+
+With **Target Scheduler**, place the Field Kit trigger in the **Triggers** of the Sequential Instruction Set surrounding Target Scheduler Container. Alternatively, NINA's existing **Move Focuser by Temp.** instruction in **Relative** mode can go in **Target Scheduler Container → Custom Event Containers → After Each Exposure**. Use one compensation mechanism. See the [temperature compensation guide](docs/temperature-compensation.md).
+
+## Start-of-night autofocus reference
+
+In development for the next release. Put these instructions around your existing startup autofocus, once per night:
+
+1. Select the filter you use for autofocus.
+2. Add **NINA Field Kit → Restore autofocus reference**. Enter your measured, signed **Steps / °C** slope; it starts blank.
+3. Run your normal **Run Autofocus** instruction.
+4. Add **NINA Field Kit → Save autofocus reference** immediately afterward.
+5. Continue your normal imaging sequence, including Target Scheduler if used.
+
+Save records a recent successful AF's position and temperature in NINA's profile settings, separately for each focuser and filter. Overnight focus changes do not overwrite it unless the save instruction runs again. On the next night, restore moves to `saved position + slope × (current temperature − saved temperature)` and waits for settling. This brings the focuser close to the expected warm starting point before the real AF runs. A negative slope increases position when temperature falls.
+
+With no saved reference, restore reports that and continues to the normal AF; the first night seeds the reference. Invalid references, unavailable temperature, unsafe/busy equipment, out-of-range predictions, and failed moves report errors rather than guessing a position. Disable hardware temperature compensation. Save requires the AF filter to remain selected and focus to remain at the AF result. Keep this block in nightly startup; Target Scheduler's **Before New Target** runs for each new target and would repeatedly update the reference. See the [autofocus reference guide](docs/autofocus-reference.md).
+
 ## Slew to sky-flat point
 
 In the Advanced Sequencer, add **NINA Field Kit → Slew to sky-flat point** before your flat exposures. This is SkyFlats' null-point instruction: **75° altitude, opposite the Sun**, calculated at execution using the observing location in your NINA profile. It enables tracking after a successful slew. The mount must already be connected and unparked.
@@ -120,6 +144,6 @@ The development tools include a standalone Alpaca fault server for scripted erro
 
 ## Design and license
 
-[Autofocus trigger](docs/autofocus-above-hfr.md) · [Safety-monitor design](docs/alpaca-safety-monitor.md) · [Implementation notes](docs/alpaca-safety-implementation.md) · [Fault-server integration design](docs/alpaca-fault-integration-suite.md)
+[Autofocus trigger](docs/autofocus-above-hfr.md) · [Temperature compensation](docs/temperature-compensation.md) · [Nightly autofocus references](docs/autofocus-reference.md) · [Safety-monitor design](docs/alpaca-safety-monitor.md) · [Implementation notes](docs/alpaca-safety-implementation.md) · [Fault-server integration design](docs/alpaca-fault-integration-suite.md)
 
 Copyright 2026 NINA Field Kit contributors. [Apache License, Version 2.0](LICENSE), SPDX `Apache-2.0`. Third-party dependencies retain their own licenses.
