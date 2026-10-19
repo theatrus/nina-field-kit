@@ -60,7 +60,7 @@ $manifest = [ordered]@{
     MinimumApplicationVersion = [ordered]@{ Major = '3'; Minor = '2'; Patch = '0'; Build = '9001' }
     Descriptions = [ordered]@{
         ShortDescription = 'Alpaca safety monitoring, autofocus limits, temperature compensation, and nightly focus references.'
-        LongDescription = 'Combines multiple Alpaca safety sources into one NINA safety result, with background polling, configurable retries, live setup, and clear diagnostics. Includes Slew to sky-flat point (75 degrees altitude opposite the Sun), AF above HFR to enforce your chosen autofocus limit, temperature compensation after light frames, and temperature-adjusted autofocus reference save/restore for nightly startup.'
+        LongDescription = 'Combines multiple Alpaca safety sources into one NINA safety result, with background polling, configurable retries, live setup, and clear diagnostics. Includes Slew to sky-flat point, a container that runs flat instructions at the night''s captured mechanical rotations, AF above HFR, temperature compensation after light frames, and temperature-adjusted autofocus reference save/restore for nightly startup.'
         FeaturedImageURL = "https://raw.githubusercontent.com/theatrus/nina-field-kit/v$Version/src/Nina.FieldKit.Plugin/Assets/field-kit.png"
         ScreenshotURL = ''
         AltScreenshotURL = ''

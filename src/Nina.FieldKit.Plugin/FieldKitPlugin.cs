@@ -17,9 +17,12 @@ namespace Nina.FieldKit.Plugin;
 public sealed class FieldKitPlugin : PluginBase {
     [Import(AllowDefault = true)]
     public Safety.SafetyMonitorProvider? SafetyProvider { get; set; }
+    [Import(AllowDefault = true)]
+    public SkyFlats.NightRotationHistory? RotationHistory { get; set; }
 
     public override Task Teardown() {
         SafetyProvider?.Dispose();
+        RotationHistory?.Dispose();
         return base.Teardown();
     }
 }
