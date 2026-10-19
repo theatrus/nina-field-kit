@@ -36,12 +36,14 @@ public sealed class SafetySetupWindow : Window {
     private readonly ComboBox outputOverride = new() { MinWidth = 145, Margin = new Thickness(12, 0, 0, 0),
         ItemsSource = new[] { SafetyOutputOverride.Safe, SafetyOutputOverride.Passthrough, SafetyOutputOverride.Unsafe } };
     private bool refreshingOverride;
+    private readonly CheckBox includeCloud = new();
+    private readonly TextBlock cloudStatus = new() { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 12, 0, 12) };
 
 
     public SafetySetupWindow(FieldKitSafetyMonitor device) {
         this.device = device;
         profileIdentity = device.ProfileIdentity;
-        Title = "Field Kit Alpaca Safety Monitor";
+        Title = "Field Kit Safety Monitor";
         Width = 960; Height = 740; MinWidth = 800; MinHeight = 620;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         var panel = SafetyDialogLayout.Root(this);
@@ -107,9 +109,11 @@ public sealed class SafetySetupWindow : Window {
         cellText.Setters.Add(new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center));
         cellText.Setters.Add(new Setter(TextBlock.MarginProperty, new Thickness(8, 0, 8, 0)));
         cellText.Setters.Add(new Setter(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis));
-        foreach (var (title, path) in new[] { ("Enabled", "Enabled"), ("Source", "Label"), ("Server URL", "BaseUrl"),
+        foreach (var (title, path) in new[] { ("Enabled", "Enabled"), ("Source", "Label"), ("Address / ASCOM driver", "BaseUrl"),
             ("Device", "DeviceNumber"), ("Poll (s)", "PollSeconds"), ("Max age (s)", "MaximumSafeAgeSeconds") })
-            grid.Columns.Add(new DataGridTextColumn { Header = title, Binding = new System.Windows.Data.Binding(path), ElementStyle = cellText });
+            grid.Columns.Add(new DataGridTextColumn { Header = title, Binding = path == "BaseUrl"
+                ? new System.Windows.Data.Binding(".") { Converter = new SourceAddressConverter() }
+                : new System.Windows.Data.Binding(path), ElementStyle = cellText });
         grid.Columns[0].Width = 70;
         grid.Columns[1].Width = 180;
         grid.Columns[2].Width = new DataGridLength(3, DataGridLengthUnitType.Star);
@@ -119,6 +123,16 @@ public sealed class SafetySetupWindow : Window {
         grid.SelectionChanged += (_, _) => UpdateControls();
         sources.Children.Add(grid);
         tabs.Items.Add(new TabItem { Header = SafetyDialogLayout.TabHeading("Sources"), Content = sources });
+        var clouds = new StackPanel { Margin = new Thickness(0, 16, 0, 0) };
+        var cloudRow = new DockPanel(); DockPanel.SetDock(includeCloud, Dock.Right); cloudRow.Children.Add(includeCloud);
+        cloudRow.Children.Add(new Label { Content = "Include Cloud guard in the combined safety result", Target = includeCloud }); clouds.Children.Add(cloudRow);
+        clouds.Children.Add(SafetyDialogLayout.Note("All enabled Alpaca/ASCOM sources AND Cloud guard must permit safety. Add the Cloud guard trigger in Report unsafe mode. Your normal unsafe sequence owns parking and recovery."));
+        clouds.Children.Add(cloudStatus);
+        var cloudSetup = SafetyDialogLayout.Button("Cloud detection and retry timer"); cloudSetup.HorizontalAlignment = HorizontalAlignment.Left;
+        cloudSetup.Click += (_, _) => { try { device.ShowCloudSetup(); } catch (InvalidOperationException e) { notice.Text = e.Message; } };
+        clouds.Children.Add(cloudSetup);
+        clouds.Children.Add(SafetyDialogLayout.Note("The cloud unsafe flag expires after the configured retry timer. This allows a trial resumption, not proof of clear skies. Returning bad evidence holds again. With this input enabled, disconnected/disarmed cloud detection reports unsafe. Cloud-only monitoring may have no other sources."));
+        tabs.Items.Add(new TabItem { Header = SafetyDialogLayout.TabHeading("Cloud guard"), Content = clouds });
         var status = new DockPanel { Margin = new Thickness(0, 16, 0, 0) };
         var export = new WrapPanel();
         AddButton(export, "Export diagnostics", ExportDiagnostics);
@@ -143,11 +157,17 @@ public sealed class SafetySetupWindow : Window {
         DockPanel.SetDock(historyHelp, Dock.Top); history.Children.Add(historyHelp); history.Children.Add(eventHistory);
         tabs.Items.Add(new TabItem { Header = SafetyDialogLayout.TabHeading("Recent events"), Content = history });
         panel.Children.Add(tabs);
-        try { foreach (var endpoint in device.LoadConfiguration().Endpoints) endpoints.Add(endpoint); }
+        try {
+            var configuration = device.LoadConfiguration();
+            includeCloud.IsChecked = configuration.IncludeCloudGuard;
+            foreach (var endpoint in configuration.Endpoints) endpoints.Add(endpoint);
+        }
         catch (ArgumentException exception) { notice.Text = exception.Message; }
         if (endpoints.Count > 0) grid.SelectedIndex = 0;
-        else notice.Text = "No sources yet. Choose Add source to get started.";
+        else notice.Text = includeCloud.IsChecked == true ? "Cloud-only monitoring. Add sources to also require external safety." : "No sources yet. Choose Add source or enable Cloud guard to get started.";
         endpoints.CollectionChanged += (_, _) => notice.Text = "Unsaved changes — choose Save to profile to apply them. Closing discards this draft.";
+        includeCloud.Checked += (_, _) => notice.Text = "Unsaved cloud integration change — choose Save to profile to apply it.";
+        includeCloud.Unchecked += (_, _) => notice.Text = "Unsaved cloud integration change — choose Save to profile to apply it.";
         timer.Tick += (_, _) => RefreshStatus();
         timer.Start();
         Closed += (_, _) => { timer.Stop(); cancellation.Cancel(); cancellation.Dispose(); };
@@ -180,6 +200,7 @@ public sealed class SafetySetupWindow : Window {
         foreach (var button in draftButtons) button.IsEnabled = editable;
         foreach (var button in selectedButtons) button.IsEnabled = editable && Selected is not null;
         saveButton.IsEnabled = editable;
+        includeCloud.IsEnabled = editable;
         testButton.IsEnabled = editable && !device.Connected && Selected is not null;
         refreshingOverride = true;
         try {
@@ -206,7 +227,7 @@ public sealed class SafetySetupWindow : Window {
     private void Apply() {
         if (!CanEdit()) return;
         try {
-            device.SaveConfiguration(new SafetyConfiguration { Endpoints = endpoints.ToArray() }, profileIdentity);
+            device.SaveConfiguration(new SafetyConfiguration { Endpoints = endpoints.ToArray(), IncludeCloudGuard = includeCloud.IsChecked == true }, profileIdentity);
             notice.Text = "Settings applied. While connected, the last result is retained during refresh within its original missing-update deadline.";
         } catch (Exception exception) when (exception is ArgumentException or InvalidOperationException) { notice.Text = exception.Message; }
     }
@@ -218,7 +239,7 @@ public sealed class SafetySetupWindow : Window {
         device.RecordDiagnostic("TestStarted", new { endpoint.Id, endpoint.Label, endpoint.ConnectionPolicy });
         notice.Text = "Testing selected source; no live safety cache will be updated…";
         try {
-            using var client = new AlpacaSafetyClient(endpoint);
+            using var client = FieldKitSafetyMonitor.CreateClient(endpoint);
             var result = await client.PollAsync(cancellation.Token);
             device.RecordDiagnostic(result.Outcome == PollOutcome.Observation ? "TestCompleted" : "TestFailed",
                 new { endpoint.Id, endpoint.Label, result });
@@ -234,6 +255,7 @@ public sealed class SafetySetupWindow : Window {
 
     private void RefreshStatus() {
         UpdateControls();
+        cloudStatus.Text = device.CloudStatus;
         var current = device.GetSnapshot();
         live.Text = current is null ? "DISCONNECTED — no live safety monitoring" :
             (device.IsSafe ? "SAFE — " : "UNSAFE — ") + device.Status;
@@ -258,7 +280,7 @@ public sealed class SafetySetupWindow : Window {
                 string Seconds(double? value) => value is double v ? $"{v:F1} s" : "—";
                 var poll = s.LastPoll;
                 return $"{s.Label} — {s.Phase} — {(s.PermitsSafe ? "permits safety" : "blocks safety")}\n{s.Reason}\n" +
-                    $"Network polling: {config?.PollSeconds} s between normal cycles. Screen refresh: 0.5 s (no network request).\n" +
+                    $"Source checks: {config?.PollSeconds} s between normal cycles. Screen refresh: 0.5 s (no source request).\n" +
                     $"Latest poll: {poll?.Outcome.ToString() ?? "waiting"}; {Seconds(s.LastPollAgeSeconds)} ago; " +
                     $"latency {(poll is null ? "—" : $"{(poll.Received - poll.RequestStarted) * 1000:F0} ms")}\n" +
                     $"Last raw safety: {s.RawIsSafe?.ToString() ?? "unknown"}; safe evidence age {Seconds(s.SafeAgeSeconds)} / {config?.MaximumSafeAgeSeconds} s\n" +
@@ -269,8 +291,16 @@ public sealed class SafetySetupWindow : Window {
                     $"Interface {poll?.InterfaceVersion?.ToString() ?? "—"}; upstream connected {poll?.Connected?.ToString() ?? "unknown"}; " +
                     $"server transaction {poll?.ServerTransactionId?.ToString() ?? "—"}; Alpaca error {poll?.ErrorNumber?.ToString() ?? "—"}\n" +
                     $"Latest result: {poll?.Reason ?? "No request completed"}\n" +
-                    $"HTTP pool lifetime: {config?.ConnectionLifetimeSeconds} s (maximum reuse age; not a socket-renewal counter).";
+                    (config?.Kind == SafetySourceKind.Ascom
+                        ? "Local ASCOM: serialized reads on a dedicated STA; HTTP pooling does not apply."
+                        : $"HTTP pool lifetime: {config?.ConnectionLifetimeSeconds} s (maximum reuse age; not a socket-renewal counter).");
             }));
+        if (device.CloudInputEnabled) diagnostics.Text += "\n\nCLOUD GUARD\n" + device.CloudStatus;
+    }
+    private sealed class SourceAddressConverter : System.Windows.Data.IValueConverter {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => value is SafetyEndpointOptions source
+            ? source.Kind == SafetySourceKind.Ascom ? "ASCOM: " + source.AscomDriverId : source.BaseUrl : "";
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
     }
 
     public static string DescribeRetryActivity(IReadOnlyList<EndpointSafetySnapshot> sources,
@@ -329,7 +359,7 @@ public sealed class SafetyEndpointEditor : Window {
         var dock = SafetyDialogLayout.Root(this);
         var heading = new StackPanel();
         heading.Children.Add(FieldKitIcon.Heading("Configure safety source"));
-        heading.Children.Add(SafetyDialogLayout.Note("Start with the source address. Review safety behavior before saving; advanced network settings have defaults."));
+        heading.Children.Add(SafetyDialogLayout.Note("Choose a source and review safety behavior before saving. Advanced connection settings have defaults."));
         DockPanel.SetDock(heading, Dock.Top); dock.Children.Add(heading);
         var footer = new StackPanel();
         var error = SafetyDialogLayout.Note("");
@@ -360,7 +390,7 @@ public sealed class SafetyEndpointEditor : Window {
             if (name == "FailedCyclesToUnsafe") box.Text = (original.FailedCyclesToUnsafe - 1).ToString(CultureInfo.InvariantCulture);
             label.Children.Add(new Label { Content = title, Target = box, Padding = new Thickness(0), FontWeight = FontWeights.SemiBold });
             label.Children.Add(SafetyDialogLayout.Note(hint, 3));
-            if (name is "Label" or "BaseUrl") {
+            if (name is "Label" or "BaseUrl" or "AscomDriverId") {
                 row.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                 row.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                 Grid.SetColumnSpan(label, 2); Grid.SetColumnSpan(box, 2); Grid.SetRow(box, 1);
@@ -369,8 +399,14 @@ public sealed class SafetyEndpointEditor : Window {
             row.Children.Add(label); row.Children.Add(box); page.Panel.Children.Add(row);
             inputs.Add(name, box); fieldTabs.Add(name, page.Tab);
         }
-        var source = Page("Source", "Enter the server address and the SafetyMonitor device number supplied by your observatory.");
+        var source = Page("Source", "Choose an Alpaca server or an installed local ASCOM SafetyMonitor driver.");
         Field(source, "Label", "Source name", "A name you will recognize in NINA.");
+        var sourceKind = new ComboBox { SelectedValuePath = "Tag", MinHeight = 32, Margin = new Thickness(0, 0, 0, 14) };
+        sourceKind.Items.Add(new ComboBoxItem { Content = "Alpaca (HTTP)", Tag = SafetySourceKind.Alpaca });
+        sourceKind.Items.Add(new ComboBoxItem { Content = "Local ASCOM safety monitor", Tag = SafetySourceKind.Ascom });
+        sourceKind.SelectedValue = original.Kind;
+        source.Panel.Children.Add(new Label { Content = "Source type", Target = sourceKind }); source.Panel.Children.Add(sourceKind);
+        Field(source, "AscomDriverId", "ASCOM driver ProgID", "The registered local SafetyMonitor driver identifier from ASCOM Profile Explorer. A compatible 64-bit ASCOM Platform must be installed.");
         Field(source, "BaseUrl", "Server URL", "Example address: http://192.0.2.1:11111 (replace with your server) — omit /api/v1/…");
         Field(source, "DeviceNumber", "SafetyMonitor device number", "Use the SafetyMonitor device number assigned by your server.");
         // NINA's checkbox template is an ON/OFF switch and does not display Content.
@@ -384,9 +420,10 @@ public sealed class SafetyEndpointEditor : Window {
         connection.Items.Add(new ComboBoxItem { Content = "No — read status only", Tag = ConnectionPolicy.ExternallyManaged });
         connection.Items.Add(new ComboBoxItem { Content = "Yes — send Connect when needed", Tag = ConnectionPolicy.Managed });
         connection.SelectedValue = original.ConnectionPolicy;
-        source.Panel.Children.Add(new Label { Content = "Send Alpaca Connect commands?", Target = connection, Padding = new Thickness(0, 0, 0, 5) });
+        var connectLabel = new Label { Content = "Send Alpaca Connect commands?", Target = connection, Padding = new Thickness(0, 0, 0, 5) };
+        source.Panel.Children.Add(connectLabel);
         source.Panel.Children.Add(connection);
-        source.Panel.Children.Add(SafetyDialogLayout.Note("Choose No if the server already reports its device as connected. Choose Yes if the safety driver requires a Connect command before it can report status. Test follows this choice. HTTP connections renew automatically in either mode."));
+        var connectionHelp = SafetyDialogLayout.Note(""); source.Panel.Children.Add(connectionHelp);
 
         var safety = Page("Safety behavior", "Check the server at the interval below. Temporary errors use the missed-check allowance. A valid unsafe response is handled separately. Startup remains unsafe until confirmed.");
         Field(safety, "PollSeconds", "Check server every (seconds)", "Normal delay between checks. Default: 30 s. Errors may retry sooner; an unsafe change is noticed at the next check.");
@@ -400,8 +437,23 @@ public sealed class SafetyEndpointEditor : Window {
         var advanced = Page("Advanced", "Check frequency and missed-check tolerance are on Safety behavior. These limits control stalled updates and error retries.");
 
         Field(advanced, "MaximumSafeAgeSeconds", "Maximum time without a safe update (seconds)", "Hard limit if checks stall entirely. Default: 90 s — two missed 30-second checks, then the next check is due. This limit may report unsafe before the missed-check count is exceeded.");
-        Field(advanced, "RequestTimeoutSeconds", "Request timeout (seconds)", "Time allowed for each HTTP request. Default: 1 s.");
+        Field(advanced, "RequestTimeoutSeconds", "Request timeout (seconds)", "Time allowed for each HTTP request or local ASCOM read. Default: 1 s. A timeout stops waiting for COM; it cannot abort the native driver call.");
         Field(advanced, "ConnectionLifetimeSeconds", "Renew HTTP connections (seconds)", "Maximum 1800 s (30 minutes). New requests replace expired pooled connections.");
+        void SourceTypeChanged() {
+            var local = sourceKind.SelectedValue is SafetySourceKind.Ascom;
+            foreach (var name in new[] { "BaseUrl", "DeviceNumber", "ConnectionLifetimeSeconds" })
+                ((FrameworkElement)inputs[name].Parent).Visibility = local ? Visibility.Collapsed : Visibility.Visible;
+            ((FrameworkElement)inputs["AscomDriverId"].Parent).Visibility = local ? Visibility.Visible : Visibility.Collapsed;
+            connectLabel.Content = local ? "Connect the ASCOM driver when needed?" : "Send Alpaca Connect commands?";
+            connectionHelp.Text = local
+                ? "Local ASCOM usually requires Yes. Calls run on a dedicated STA thread. A stalled call prevents new reads and replacement connections until that driver returns. Configure the driver using its ASCOM setup tool first."
+                : "Choose No if the server already reports connected. Choose Yes if it requires Connect commands. HTTP connections renew automatically in either mode.";
+        }
+        sourceKind.SelectionChanged += (_, _) => {
+            if (sourceKind.SelectedValue is SafetySourceKind.Ascom && original.Kind != SafetySourceKind.Ascom) connection.SelectedValue = ConnectionPolicy.Managed;
+            SourceTypeChanged();
+        };
+        SourceTypeChanged();
         var retryPanel = new StackPanel();
         var retry = new Expander { Header = "Retry tuning", Content = retryPanel, Margin = new Thickness(0, 12, 0, 0) };
         advanced.Panel.Children.Add(retry);
@@ -435,6 +487,7 @@ public sealed class SafetyEndpointEditor : Window {
                 }
                 parsing = null;
                 json["Enabled"] = enabled.IsChecked == true;
+                json["Kind"] = (int)(SafetySourceKind)(sourceKind.SelectedValue ?? SafetySourceKind.Alpaca);
                 json["ConnectionPolicy"] = (int)(connection.SelectedValue ?? ConnectionPolicy.ExternallyManaged);
                 var result = json.ToObject<SafetyEndpointOptions>()!;
                 result.Validate();

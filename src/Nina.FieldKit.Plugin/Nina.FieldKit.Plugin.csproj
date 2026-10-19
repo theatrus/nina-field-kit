@@ -4,7 +4,7 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>Nina.FieldKit.Plugin</AssemblyName>
     <AssemblyTitle>Field Kit</AssemblyTitle>
-    <Description>Combines multiple Alpaca safety sources into one NINA safety result, with background polling, configurable retries, live setup, and clear diagnostics. Includes Slew to sky-flat point (75 degrees altitude opposite the Sun), AF above HFR to enforce your chosen autofocus limit, temperature compensation after light frames, and temperature-adjusted autofocus reference save/restore for nightly startup.</Description>
+    <Description>Combines Alpaca and local ASCOM safety sources with optional Cloud guard into one NINA safety result. Cloud guard watches star counts, guiding and solve failures, then parks and retries or signals an existing unsafe sequence. Includes background safety polling, configurable retries, live setup, diagnostics, Slew to sky-flat point (75 degrees altitude opposite the Sun), AF above HFR, temperature compensation after light frames, and temperature-adjusted autofocus reference save/restore for nightly startup.</Description>
     <ApplicationIcon>Assets/field-kit.ico</ApplicationIcon>
     <IsPackable>false</IsPackable>
   </PropertyGroup>

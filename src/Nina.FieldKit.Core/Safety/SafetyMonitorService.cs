@@ -42,7 +42,8 @@ public sealed class SafetyMonitorService : IDisposable {
         this.clientFactory = clientFactory;
         try {
             foreach (var options in this.configuration.Endpoints.Where(e => e.Enabled))
-                workers.Add(new(options, (clientFactory ?? (o => new AlpacaSafetyClient(o, this.clock)))(options)));
+                workers.Add(new(options, (clientFactory ?? (o => o.Kind == SafetySourceKind.Alpaca ? new AlpacaSafetyClient(o, this.clock)
+                    : throw new NotSupportedException("Local ASCOM sources require the NINA host client.")))(options)));
         } catch {
             foreach (var worker in workers) worker.Client.Dispose();
             cancellation.Dispose();
@@ -57,7 +58,7 @@ public sealed class SafetyMonitorService : IDisposable {
         lock (gate) {
             var previous = Snapshot();
             var replacement = new SafetyMonitorService(next, clock, clientFactory, log) { startAfter = completion };
-            if (previous.IsSafe) {
+            if (previous.IsSafe && previous.Endpoints.Count > 0) {
                 // The original deadline survives repeated edits. Saving never refreshes evidence.
                 replacement.preservedSafeUntil = preservedSafeUntil ?? Now + previous.Endpoints.Min(e =>
                     Math.Max(0, workers.Single(w => w.Options.Id == e.Id).Options.MaximumSafeAgeSeconds - (e.SafeAgeSeconds ?? double.PositiveInfinity)));
@@ -93,7 +94,7 @@ public sealed class SafetyMonitorService : IDisposable {
                 LastPollAgeSeconds = w.LastPoll is { } poll ? Math.Max(0, now - poll.Received) : null,
                 CompletedPolls = w.CompletedPolls, FailedPolls = w.FailedPolls, CheckInProgress = w.CheckInProgress
             }).ToArray();
-            if (serviceFault || snapshots.Length == 0 || snapshots.Any(s => !s.PermitsSafe)) aggregateSafe = false;
+            if (serviceFault || (snapshots.Length == 0 && !configuration.IncludeCloudGuard) || snapshots.Any(s => !s.PermitsSafe)) aggregateSafe = false;
             else if (!aggregateSafe)
                 aggregateSafe = snapshots.All(s => s.Phase == EndpointPhase.FreshSafe && s.RecoveryConfirmed);
             var pending = snapshots.Any(s => s.Phase != EndpointPhase.FreshSafe);

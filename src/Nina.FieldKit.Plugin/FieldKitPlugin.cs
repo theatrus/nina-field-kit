@@ -17,9 +17,12 @@ namespace Nina.FieldKit.Plugin;
 public sealed class FieldKitPlugin : PluginBase {
     [Import(AllowDefault = true)]
     public Safety.SafetyMonitorProvider? SafetyProvider { get; set; }
+    [Import(AllowDefault = true)]
+    public Clouds.CloudGuardService? CloudGuard { get; set; }
 
     public override Task Teardown() {
         SafetyProvider?.Dispose();
+        CloudGuard?.Dispose();
         return base.Teardown();
     }
 }
