@@ -4,7 +4,40 @@
     xmlns:local="clr-namespace:Nina.FieldKit.Plugin"
     xmlns:clouds="clr-namespace:Nina.FieldKit.Plugin.Clouds"
     xmlns:cloudModel="clr-namespace:Nina.FieldKit.Core.Clouds;assembly=Nina.FieldKit.Core"
+    xmlns:containers="clr-namespace:NINA.Sequencer.Container;assembly=NINA.Sequencer"
     xmlns:seq="clr-namespace:NINA.View.Sequencer;assembly=NINA.Sequencer">
+    <!-- A self-contained native container owns its child list in both TreeView and embedded ItemsControl hosts. -->
+    <DataTemplate DataType="{x:Type local:SkyFlatRotationsContainer}">
+        <seq:SequenceContainerView>
+            <seq:SequenceContainerView.Resources>
+                <!-- Native generic sets need self-contained children when hosted inside an ItemsControl too. -->
+                <DataTemplate DataType="{x:Type containers:SequenceContainer}">
+                    <seq:SequenceContainerView />
+                </DataTemplate>
+                <DataTemplate DataType="{x:Type containers:ParallelContainer}">
+                    <seq:SequenceContainerView />
+                </DataTemplate>
+            </seq:SequenceContainerView.Resources>
+            <seq:SequenceContainerView.SequenceContainerContent>
+                <StackPanel Margin="8,4">
+                    <WrapPanel>
+                        <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding NightOffset}" MinWidth="150" Margin="0,0,10,0"
+                            ToolTip="Observing nights run noon to noon in the computer's local time. Use Previous night for flats after noon.">
+                            <ComboBoxItem Content="Current night"><ComboBoxItem.Tag><sys:Int32 xmlns:sys="clr-namespace:System;assembly=mscorlib">0</sys:Int32></ComboBoxItem.Tag></ComboBoxItem>
+                            <ComboBoxItem Content="Previous night"><ComboBoxItem.Tag><sys:Int32 xmlns:sys="clr-namespace:System;assembly=mscorlib">-1</sys:Int32></ComboBoxItem.Tag></ComboBoxItem>
+                        </ComboBox>
+                        <TextBlock Text="Tolerance °" VerticalAlignment="Center" />
+                        <TextBox Width="55" Margin="5,0,10,0" Text="{Binding ToleranceDegrees, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}"
+                            ToolTip="Group positions this close together and require the rotator to arrive within this tolerance. Default 0.1°; 0° and 180° remain distinct." />
+                        <TextBlock Text="Move timeout s" VerticalAlignment="Center" />
+                        <TextBox Width="55" Margin="5,0,10,0" Text="{Binding MoveTimeoutSeconds, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" />
+                        <Button Command="{Binding PreviewCommand}"><TextBlock Text="Show rotations" Margin="8,3" Foreground="{DynamicResource ButtonForegroundBrush}" /></Button>
+                    </WrapPanel>
+                    <TextBlock Margin="0,5,0,0" Text="{Binding LastResult}" TextWrapping="Wrap" />
+                </StackPanel>
+            </seq:SequenceContainerView.SequenceContainerContent>
+        </seq:SequenceContainerView>
+    </DataTemplate>
     <DataTemplate DataType="{x:Type local:SaveAutofocusReference}">
         <seq:SequenceBlockView>
             <seq:SequenceBlockView.SequenceItemContent>

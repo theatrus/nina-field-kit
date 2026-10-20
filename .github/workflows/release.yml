@@ -89,5 +89,9 @@ jobs:
             TestResults/
             artifacts/safety-*.png
             artifacts/autofocus-sequence-item.png
+            artifacts/temperature-compensation-trigger.png
+            artifacts/focus-reference-*.png
+            artifacts/flat-rotations-*.png
+            artifacts/cloud-*.png
             artifacts/fault-tests/
             artifacts/fault-acceptance/

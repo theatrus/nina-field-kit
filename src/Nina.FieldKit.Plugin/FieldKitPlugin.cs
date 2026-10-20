@@ -19,10 +19,13 @@ public sealed class FieldKitPlugin : PluginBase {
     public Safety.SafetyMonitorProvider? SafetyProvider { get; set; }
     [Import(AllowDefault = true)]
     public Clouds.CloudGuardService? CloudGuard { get; set; }
+    [Import(AllowDefault = true)]
+    public SkyFlats.NightRotationHistory? RotationHistory { get; set; }
 
     public override Task Teardown() {
         SafetyProvider?.Dispose();
         CloudGuard?.Dispose();
+        RotationHistory?.Dispose();
         return base.Teardown();
     }
 }

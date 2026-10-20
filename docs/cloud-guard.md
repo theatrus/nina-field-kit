@@ -1,6 +1,6 @@
 # Cloud guard
 
-Status: first implementation for review, not yet released. Built against NINA 3.2.0.9001. The timer and detector are tested with simulated time; NINA events, safety aggregation, COM threading and themed dialogs are tested with simulated equipment. Physical recovery and a real Target Scheduler session still need validation.
+Available in Field Kit **0.1.0.17**. Built against NINA 3.2.0.9001. The timer and detector are tested with simulated time; NINA events, safety aggregation, COM threading and themed dialogs are tested with simulated equipment. Physical recovery and a real Target Scheduler session still need validation.
 
 Cloud guard detects degraded imaging conditions and allows periodic trials after a cloud event. It offers a self-contained park/retry trigger or an optional input to the existing Field Kit safety device. The two modes share the same detector and settings.
 
