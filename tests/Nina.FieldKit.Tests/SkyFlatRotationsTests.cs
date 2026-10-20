@@ -21,7 +21,11 @@ public sealed class SkyFlatRotationsTests {
     internal sealed class History : INightRotationHistory {
         public FlatRotationScope Scope { get; set; } = new(Guid.NewGuid(), "camera-A", "rotator-A");
         public double[] Angles = [10, 190, 45];
-        public FlatRotationPlan GetPlan(int nightOffset, double tolerance) => new(Scope, new DateTime(2026, 10, 18).AddDays(nightOffset), Angles);
+        public Exception? PlanFailure;
+        public FlatRotationPlan GetPlan(int nightOffset, double tolerance) {
+            if (PlanFailure is { } failure) throw failure;
+            return new(Scope, new DateTime(2026, 10, 18).AddDays(nightOffset), Angles);
+        }
     }
     [JsonObject(MemberSerialization.OptIn)]
     public sealed class Probe(Action action) : SequenceItem {

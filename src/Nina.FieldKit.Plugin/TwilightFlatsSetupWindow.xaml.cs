@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 
 namespace Nina.FieldKit.Plugin;
@@ -16,6 +17,8 @@ public partial class TwilightFlatsSetupWindow : Window {
     }
     private void PreviewClick(object sender, RoutedEventArgs args) {
         try { RotationPreview.Text = draft.PreviewRotations(); }
-        catch (Exception e) when (e is ArgumentException or InvalidOperationException) { RotationPreview.Text = e.Message; }
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException or InvalidDataException or IOException) {
+            RotationPreview.Text = e.Message;
+        }
     }
 }

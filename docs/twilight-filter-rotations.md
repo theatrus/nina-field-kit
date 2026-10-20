@@ -1,6 +1,6 @@
 # Twilight flats by filter and rotation
 
-Status: implemented on the companion feature branch, not included in the 0.1.0.17 Cloud guard release. Requires NINA 3.2.0.9001 or newer.
+Available in Field Kit **0.1.0.18**. Requires NINA 3.2.0.9001 or newer.
 
 This container runs NINA's built-in [Twilight Sky Flats](https://github.com/isbeorn/nina/blob/release/3.2.x/NINA.Sequencer/SequenceItem/FlatDevice/SkyFlat.cs) at every recorded mechanical rotation for one filter before selecting the next filter. The list runs top to bottom, so your light-to-dark order is preserved across the whole flats session. It reuses Field Kit's existing rotation history and movement checks; no SkyFlats plugin is required.
 

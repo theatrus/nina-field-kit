@@ -60,6 +60,7 @@ jobs:
             artifacts/cloud-*.png
             artifacts/flat-rotations-*.png
             artifacts/twilight-filters-*.png
+            artifacts/twilight-setup-*.png
             artifacts/fault-tests/
           if-no-files-found: warn
           retention-days: 14

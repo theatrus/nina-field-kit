@@ -105,6 +105,19 @@ public sealed partial class PluginTests {
                 var refresh = Assert.Single(TwilightVisuals(dialog).OfType<Button>(), b => b.Content is TextBlock { Text: "Refresh profile filters" });
                 refresh.Command.Execute(refresh.CommandParameter); TwilightLayout(dialog, window.Width, window.Height);
                 Assert.Equal(4, order.Items.Count); Assert.False(draft.Filters[3].Enabled); Assert.Equal(3, rig.Container.FilterOrder.Count);
+                var preview = Assert.Single(TwilightVisuals(dialog).OfType<Button>(), button => button.Content is TextBlock { Text: "Show rotations" });
+                var previewText = Assert.Single(TwilightVisuals(dialog).OfType<TextBlock>(), text => text.Name == "RotationPreview");
+                foreach (var failure in new Exception[] {
+                    new System.IO.InvalidDataException("Recorded flat rotations could not be read."),
+                    new System.IO.IOException("Rotation history is unavailable.")
+                }) {
+                    rig.Rotation.History.PlanFailure = failure;
+                    preview.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    Assert.Equal(failure.Message, previewText.Text);
+                }
+                rig.Rotation.History.PlanFailure = null;
+                preview.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Contains("10°, 190°, 45°", previewText.Text);
                 SaveTwilightPreview(dialog, $"twilight-setup-{theme.Replace(' ', '-')}.png", (int)window.Width, (int)window.Height);
                 // Resizing must preserve the names and keep the settings out of the sequence body.
                 TwilightLayout(dialog, window.MinWidth, window.MinHeight);
