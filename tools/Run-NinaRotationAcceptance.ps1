@@ -36,13 +36,15 @@ try {
     foreach ($sequenceName in @('acceptance.json','acceptance-restart.json')) {
         $sequencePath = Join-Path $OutputDirectory $sequenceName
         Write-Host "Running installed NINA with simulators: $sequenceName"
+        $processStartedUtc = [DateTime]::UtcNow
         $testProcess = Start-Process -FilePath $NinaPath -ArgumentList @('-p',$run.Id,'-s',('"'+$sequencePath+'"'),'-r','-x') -WindowStyle Hidden -PassThru
         $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
         while (!$testProcess.WaitForExit(1000)) {
             if ([DateTime]::UtcNow -ge $deadline) { throw "NINA simulator run timed out: $sequenceName" }
         }
         if ($testProcess.ExitCode -ne 0) { throw "NINA exited with code $($testProcess.ExitCode)." }
-        $logFiles = @(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'NINA/Logs') -Filter "*.$($testProcess.Id)-*.log")
+        $logFiles = @(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'NINA/Logs') -Filter "*.$($testProcess.Id)-*.log" |
+            Where-Object { $_.CreationTimeUtc -ge $processStartedUtc.AddSeconds(-1) })
         if ($logFiles.Count -ne 1) { throw 'Expected exactly one NINA log for the simulator process.' }
         $destination = Join-Path $OutputDirectory "$sequenceName.nina.log"
         Copy-Item -LiteralPath $logFiles[0].FullName -Destination $destination
