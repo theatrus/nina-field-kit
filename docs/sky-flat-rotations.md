@@ -19,7 +19,7 @@ Sky flats at captured rotations         (Field Kit container)
 Park / normal shutdown instructions
 ```
 
-Add **NINA Field Kit → Sky flats at captured rotations** as a container, then drag instructions into it. Use its normal NINA header to rename, drag, duplicate or remove it. The example's SkyFlats instruction comes from that separate plugin. Field Kit does not install it or choose exposure settings. A positioning instruction can also be placed inside the container if you want it repeated/recalculated for every angle.
+Add **NINA Field Kit → Sky flats at captured rotations** as a container, then drag instructions onto **Drop instructions here**. This explicit drop area is available in **0.1.0.15** and stays available after the first instruction is added. It accepts sidebar instructions, existing instructions and nested instruction sets, appending them to the loop. Add conditions and triggers in their own native sections. Use the normal NINA header to rename, drag, duplicate or remove the container. The example's SkyFlats instruction comes from that separate plugin. Field Kit does not install it or choose exposure settings. A positioning instruction can also be placed inside the container if you want it repeated/recalculated for every angle.
 
 Field Kit must be loaded while the lights are acquired. It automatically observes NINA image saves for the active profile; no extra trigger or recording instruction is required. Both ordinary Advanced Sequencer and Target Scheduler light frames use this path.
 

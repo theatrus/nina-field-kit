@@ -206,6 +206,7 @@ public sealed class PluginTests {
                 }
             }
             CheckFlatRotationContainerChrome(resources, profiles.Object);
+            CheckFlatRotationInstructionDrops(resources);
             GC.KeepAlive(profileResources);
         }
         finally {
@@ -264,5 +265,70 @@ public sealed class PluginTests {
         using var file = System.IO.File.Create(System.IO.Path.Combine(directory, $"flat-rotations-container-{theme.Replace(' ', '-')}.png")); encoder.Save(file);
         }
         } finally { Application.Current.Resources = previousResources; }
+    }
+    private static void CheckFlatRotationInstructionDrops(SequenceTemplates resources) {
+        Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary {
+            Source = new Uri("/NINA.WPF.Base;component/Resources/Styles/ListView.xaml", UriKind.Relative)
+        });
+        var rig = new SkyFlatRotationsTests.Rig();
+        var root = new NINA.Sequencer.Container.SequenceRootContainer();
+        var startup = new NINA.Sequencer.Container.StartAreaContainer();
+        var targets = new NINA.Sequencer.Container.TargetAreaContainer();
+        root.Add(startup); root.Add(targets); root.Add(new NINA.Sequencer.Container.EndAreaContainer());
+        targets.Add(rig.Container);
+        var native = new NINA.View.Sequencer.SequenceView {
+            DataContext = new { Sequencer = root, IsLocked = false, CanDragAndDrop = true }
+        };
+        native.Resources.MergedDictionaries.Add(new NINA.Sequencer.Container.Datatemplates());
+        native.Resources.MergedDictionaries.Add(resources);
+        var host = new System.Windows.Controls.Border { Child = native };
+        host.Measure(new Size(1100, 900)); host.Arrange(new Rect(0, 0, 1100, 900)); host.UpdateLayout();
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        host.UpdateLayout();
+        IEnumerable<DependencyObject> Visuals(DependencyObject element) {
+            yield return element;
+            for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(element); i++)
+                foreach (var child in Visuals(System.Windows.Media.VisualTreeHelper.GetChild(element, i))) yield return child;
+        }
+        var target = Assert.Single(Visuals(host).OfType<System.Windows.Controls.Border>(), b => Equals(b.Tag, "InstructionDropTarget"));
+        Assert.Same(rig.Container, target.DataContext);
+        Assert.True(target.ActualWidth > 200 && target.ActualHeight >= 40);
+        // Hit-test the empty target as the native drag behavior does, then use its actual drop command.
+        var center = target.TranslatePoint(new Point(target.ActualWidth / 2, target.ActualHeight / 2), host);
+        var drag = new NINA.Sequencer.Behaviors.DragDropBehavior(new System.Windows.Controls.Grid());
+        System.Windows.Media.VisualTreeHelper.HitTest(host, null, drag.GetFirstDropIntoBehaviorBelowMyself,
+            new System.Windows.Media.PointHitTestParameters(center));
+        var drop = Assert.IsType<NINA.Sequencer.Behaviors.DropIntoBehavior>(typeof(NINA.Sequencer.Behaviors.DragDropBehavior)
+            .GetField("hitTestDropIntoBehavior", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(drag));
+        Assert.Contains(drop, Microsoft.Xaml.Behaviors.Interaction.GetBehaviors(target));
+        System.Windows.Media.VisualTreeHelper.HitTest(host, null, drag.GetFirstDraggedOverBehaviorElementBelowMyself,
+            new System.Windows.Media.PointHitTestParameters(center));
+        Assert.Same(target, typeof(NINA.Sequencer.Behaviors.DragDropBehavior)
+            .GetField("draggedOverElement", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(drag));
+        var over = Assert.Single(Microsoft.Xaml.Behaviors.Interaction.GetBehaviors(target).OfType<NINA.Sequencer.Behaviors.DragOverBehavior>());
+        Assert.True(over.AllowDragCenter); Assert.False(over.AllowDragAbove); Assert.False(over.AllowDragBelow);
+        var available = new NINA.Sequencer.SequenceItem.Utility.WaitForTimeSpan { Time = 1 };
+        Assert.True(drop.CanDropInto(available.GetType()));
+        drop.ExecuteDropInto(new NINA.Sequencer.DragDrop.DropIntoParameters(available));
+        var added = Assert.IsType<NINA.Sequencer.SequenceItem.Utility.WaitForTimeSpan>(Assert.Single(rig.Container.Items));
+        Assert.NotSame(available, added); Assert.Same(rig.Container, added.Parent);
+        var existing = new NINA.Sequencer.SequenceItem.Utility.WaitForTimeSpan { Time = 2 };
+        host.UpdateLayout();
+        // The append target must remain usable after the first instruction has been added.
+        Assert.True(drop.CanDropInto(existing.GetType()));
+        startup.Add(existing);
+        drop.ExecuteDropInto(new NINA.Sequencer.DragDrop.DropIntoParameters(existing));
+        Assert.Empty(startup.Items); Assert.Same(existing, rig.Container.Items[1]); Assert.Same(rig.Container, existing.Parent);
+        var nested = new NINA.Sequencer.Container.SequentialContainer();
+        nested.Add(new NINA.Sequencer.SequenceItem.Utility.WaitForTimeSpan { Time = 3 });
+        drop.ExecuteDropInto(new NINA.Sequencer.DragDrop.DropIntoParameters(nested));
+        var nestedCopy = Assert.IsType<NINA.Sequencer.Container.SequentialContainer>(rig.Container.Items[2]);
+        Assert.Single(nestedCopy.Items); Assert.Same(rig.Container, nestedCopy.Parent); Assert.Same(nestedCopy, nestedCopy.Items[0].Parent);
+        Assert.False(drop.CanDropInto(typeof(NINA.Sequencer.Conditions.LoopCondition)));
+        Assert.False(drop.CanDropInto(typeof(TemperatureCompensationTrigger)));
+        target.IsEnabled = false;
+        var count = rig.Container.Items.Count;
+        drop.ExecuteDropInto(new NINA.Sequencer.DragDrop.DropIntoParameters(available));
+        Assert.Equal(count, rig.Container.Items.Count);
     }
 }
