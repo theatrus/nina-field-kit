@@ -207,6 +207,7 @@ public sealed class PluginTests {
             }
             CheckFlatRotationContainerChrome(resources, profiles.Object);
             CheckFlatRotationInstructionDrops(resources);
+            CheckEmbeddedFlatRotationChildren(resources);
             GC.KeepAlive(profileResources);
         }
         finally {
@@ -220,9 +221,8 @@ public sealed class PluginTests {
         var rig = new SkyFlatRotationsTests.Rig();
         rig.Container.Add(new SlewToSkyFlatPoint(Telescope().Object, rig.Profiles.Object) { Name = "Slew to sky-flat point" });
         rig.Container.PreviewCommand.Execute(null);
-        var template = Assert.IsType<HierarchicalDataTemplate>(resources[new DataTemplateKey(typeof(SkyFlatRotationsContainer))]);
-        Assert.Equal("Items", Assert.IsType<System.Windows.Data.Binding>(template.ItemsSource).Path.Path);
-        var view = Assert.IsType<NINA.View.Sequencer.HierarchicalSequenceContainerView>(template.LoadContent());
+        var template = Assert.IsType<DataTemplate>(resources[new DataTemplateKey(typeof(SkyFlatRotationsContainer))]);
+        var view = Assert.IsType<NINA.View.Sequencer.SequenceContainerView>(template.LoadContent());
         Assert.IsType<System.Windows.Controls.StackPanel>(view.SequenceContainerContent);
         var previousResources = Application.Current.Resources;
         try {
@@ -241,7 +241,6 @@ public sealed class PluginTests {
         tree.SetResourceReference(System.Windows.Controls.Control.ForegroundProperty, "PrimaryBrush");
         tree.Resources.MergedDictionaries.Add(resources);
         var itemStyle = new Style(typeof(System.Windows.Controls.TreeViewItem));
-        itemStyle.Setters.Add(new Setter(System.Windows.Controls.TreeViewItem.IsExpandedProperty, true));
         itemStyle.Setters.Add(new Setter(System.Windows.Controls.TreeViewItem.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
         tree.ItemContainerStyle = itemStyle;
         var host = new System.Windows.Controls.Border { Child = tree, Padding = new Thickness(10) };
@@ -290,11 +289,15 @@ public sealed class PluginTests {
             for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(element); i++)
                 foreach (var child in Visuals(System.Windows.Media.VisualTreeHelper.GetChild(element, i))) yield return child;
         }
-        var target = Assert.Single(Visuals(host).OfType<System.Windows.Controls.Border>(), b => Equals(b.Tag, "InstructionDropTarget"));
+        var containerView = Assert.Single(Visuals(host).OfType<NINA.View.Sequencer.SequenceContainerView>(), v => ReferenceEquals(v.DataContext, rig.Container));
+        var dropTargets = Visuals(containerView).OfType<FrameworkElement>().Where(element =>
+            Microsoft.Xaml.Behaviors.Interaction.GetBehaviors(element).OfType<NINA.Sequencer.Behaviors.DropIntoBehavior>()
+                .Any(b => b.OnDropCommand == "DropIntoCommand")).ToArray();
+        var target = Assert.Single(dropTargets);
         Assert.Same(rig.Container, target.DataContext);
         Assert.True(target.ActualWidth > 200 && target.ActualHeight >= 40);
         // Hit-test the empty target as the native drag behavior does, then use its actual drop command.
-        var center = target.TranslatePoint(new Point(target.ActualWidth / 2, target.ActualHeight / 2), host);
+        var center = target.TranslatePoint(new Point(target.ActualWidth / 2, target.ActualHeight - 8), host);
         var drag = new NINA.Sequencer.Behaviors.DragDropBehavior(new System.Windows.Controls.Grid());
         System.Windows.Media.VisualTreeHelper.HitTest(host, null, drag.GetFirstDropIntoBehaviorBelowMyself,
             new System.Windows.Media.PointHitTestParameters(center));
@@ -312,9 +315,14 @@ public sealed class PluginTests {
         drop.ExecuteDropInto(new NINA.Sequencer.DragDrop.DropIntoParameters(available));
         var added = Assert.IsType<NINA.Sequencer.SequenceItem.Utility.WaitForTimeSpan>(Assert.Single(rig.Container.Items));
         Assert.NotSame(available, added); Assert.Same(rig.Container, added.Parent);
+        host.UpdateLayout();
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        host.UpdateLayout();
+        Assert.Contains(Visuals(host).OfType<NINA.View.Sequencer.SequenceBlockView>(), view => ReferenceEquals(view.DataContext, added) && view.ActualHeight > 0);
+        Assert.False(over.AllowDragCenter);
         var existing = new NINA.Sequencer.SequenceItem.Utility.WaitForTimeSpan { Time = 2 };
         host.UpdateLayout();
-        // The append target must remain usable after the first instruction has been added.
+        // A populated loop still accepts native insertions through its container drop command.
         Assert.True(drop.CanDropInto(existing.GetType()));
         startup.Add(existing);
         drop.ExecuteDropInto(new NINA.Sequencer.DragDrop.DropIntoParameters(existing));
@@ -324,11 +332,80 @@ public sealed class PluginTests {
         drop.ExecuteDropInto(new NINA.Sequencer.DragDrop.DropIntoParameters(nested));
         var nestedCopy = Assert.IsType<NINA.Sequencer.Container.SequentialContainer>(rig.Container.Items[2]);
         Assert.Single(nestedCopy.Items); Assert.Same(rig.Container, nestedCopy.Parent); Assert.Same(nestedCopy, nestedCopy.Items[0].Parent);
+        host.UpdateLayout();
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        host.UpdateLayout();
+        var addedView = Assert.Single(Visuals(containerView).OfType<NINA.View.Sequencer.SequenceBlockView>(), v => ReferenceEquals(v.DataContext, added));
+        Assert.True(addedView.ActualHeight > 0);
+        Assert.Single(Visuals(containerView).OfType<NINA.View.Sequencer.SequenceBlockView>(), v => ReferenceEquals(v.DataContext, nestedCopy.Items[0]));
+        var parallel = new NINA.Sequencer.Container.ParallelContainer();
+        parallel.Add(new NINA.Sequencer.SequenceItem.Utility.WaitForTimeSpan { Time = 4 });
+        rig.Container.Add(parallel);
+        host.UpdateLayout();
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        host.UpdateLayout();
+        Assert.Single(Visuals(containerView).OfType<NINA.View.Sequencer.SequenceBlockView>(), v => ReferenceEquals(v.DataContext, parallel.Items[0]));
+        drop.ExecuteDropInto(new NINA.Sequencer.DragDrop.DropIntoParameters(existing, added, NINA.Core.Enum.DropTargetEnum.Top));
+        Assert.Same(existing, rig.Container.Items[0]); Assert.Same(added, rig.Container.Items[1]);
+        existing.DetachCommand.Execute(null);
+        Assert.DoesNotContain(existing, rig.Container.Items);
+        host.UpdateLayout();
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        host.UpdateLayout();
+        Assert.DoesNotContain(Visuals(containerView).OfType<NINA.View.Sequencer.SequenceBlockView>(), v => ReferenceEquals(v.DataContext, existing));
         Assert.False(drop.CanDropInto(typeof(NINA.Sequencer.Conditions.LoopCondition)));
         Assert.False(drop.CanDropInto(typeof(TemperatureCompensationTrigger)));
         target.IsEnabled = false;
         var count = rig.Container.Items.Count;
         drop.ExecuteDropInto(new NINA.Sequencer.DragDrop.DropIntoParameters(available));
         Assert.Equal(count, rig.Container.Items.Count);
+    }
+    private static void CheckEmbeddedFlatRotationChildren(SequenceTemplates resources) {
+        var rig = new SkyFlatRotationsTests.Rig();
+        var child = new NINA.Sequencer.SequenceItem.Utility.WaitForTimeSpan { Time = 2 };
+        rig.Container.Add(child);
+        var embedded = new System.Windows.Controls.ItemsControl { ItemsSource = new[] { rig.Container } };
+        embedded.Resources.MergedDictionaries.Add(resources);
+        var embeddedHost = new System.Windows.Controls.Border { Child = embedded };
+        embeddedHost.Measure(new Size(1000, 800)); embeddedHost.Arrange(new Rect(0, 0, 1000, 800)); embeddedHost.UpdateLayout();
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        embedded.UpdateLayout();
+        IEnumerable<DependencyObject> Visuals(DependencyObject element) {
+            yield return element;
+            for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(element); i++)
+                foreach (var descendant in Visuals(System.Windows.Media.VisualTreeHelper.GetChild(element, i))) yield return descendant;
+        }
+        Assert.Contains(Visuals(embedded).OfType<NINA.View.Sequencer.SequenceBlockView>(), view => ReferenceEquals(view.DataContext, child) && view.ActualHeight > 0);
+        var expander = Assert.Single(Visuals(embedded).OfType<NINA.CustomControlLibrary.DetachingExpander>(), e => ReferenceEquals(e.DataContext, rig.Container));
+        Assert.True(expander.IsExpanded);
+        expander.SetCurrentValue(System.Windows.Controls.Expander.IsExpandedProperty, false);
+        embedded.UpdateLayout();
+        Assert.False(rig.Container.IsExpanded);
+        Assert.DoesNotContain(Visuals(embedded).OfType<NINA.View.Sequencer.SequenceBlockView>(), view => ReferenceEquals(view.DataContext, child));
+        expander.SetCurrentValue(System.Windows.Controls.Expander.IsExpandedProperty, true);
+        embedded.UpdateLayout();
+        Assert.True(rig.Container.IsExpanded);
+        Assert.Contains(Visuals(embedded).OfType<NINA.View.Sequencer.SequenceBlockView>(), view => ReferenceEquals(view.DataContext, child) && view.ActualHeight > 0);
+        rig.Container.IsExpanded = false;
+        embedded.UpdateLayout();
+        Assert.False(expander.IsExpanded);
+        rig.Container.IsExpanded = true;
+        embedded.UpdateLayout();
+        Assert.True(expander.IsExpanded);
+        Assert.Single(Visuals(embedded).OfType<NINA.View.Sequencer.SequenceBlockView>(), view => ReferenceEquals(view.DataContext, child));
+        var factory = new Mock<NINA.Sequencer.ISequencerFactory>();
+        factory.SetupGet(f => f.DateTimeProviders).Returns(new List<NINA.Sequencer.Utility.DateTimeProvider.IDateTimeProvider>());
+        factory.Setup(f => f.GetContainer<SkyFlatRotationsContainer>()).Returns(() => new SkyFlatRotationsContainer(rig.History, rig.Profiles.Object, rig.Rotator.Object, rig.Camera.Object, rig.Safety.Object));
+        factory.Setup(f => f.GetItem<NINA.Sequencer.SequenceItem.Utility.WaitForTimeSpan>()).Returns(() => new NINA.Sequencer.SequenceItem.Utility.WaitForTimeSpan());
+        var converter = new NINA.Sequencer.Serialization.SequenceJsonConverter(factory.Object);
+        var restored = Assert.IsType<SkyFlatRotationsContainer>(converter.Deserialize(converter.Serialize(rig.Container)));
+        var restoredChild = Assert.Single(restored.Items);
+        embedded.ItemsSource = new[] { restored };
+        embeddedHost.UpdateLayout();
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        embeddedHost.UpdateLayout();
+        Assert.Same(restored, restoredChild.Parent);
+        Assert.Single(Visuals(embedded).OfType<NINA.View.Sequencer.SequenceBlockView>(), v => ReferenceEquals(v.DataContext, restoredChild));
+        Assert.True(Assert.Single(Visuals(embedded).OfType<NINA.CustomControlLibrary.DetachingExpander>(), e => ReferenceEquals(e.DataContext, restored)).IsExpanded);
     }
 }
