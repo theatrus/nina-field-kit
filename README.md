@@ -137,6 +137,10 @@ Field Kit records light-frame rotations automatically while loaded and keeps the
 
 Put a wait for morning sky brightness and any required mount positioning before the loop, or include positioning among its children. Configure the SkyFlats item for the filters and camera settings you need at each rotation. An empty night skips the loop. The container uses captured rotations recorded while Field Kit was loaded; it does not derive upcoming target angles, scan older images, or update Target Scheduler's flat history. See the [rotation-loop guide](docs/sky-flat-rotations.md).
 
+## Twilight flats by filter and rotation
+
+Available starting with **0.1.0.18**. Add **Twilight flats by filter and rotation**, then choose **Setup…** to select and order profile filters in a separate dialog. The sequence shows a compact summary, with every captured mechanical angle completed on one filter before the next. Place NINA's built-in **Twilight Sky Flats** inside its normal Instructions section and configure its exposure settings. The container supplies the filter in the order you choose; no separate SkyFlats plugin or nested rotation helper is needed. See the [setup and execution guide](docs/twilight-filter-rotations.md).
+
 ## Status and troubleshooting
 
 - **Setup → Monitor status** shows the combined result. The main SAFE/UNSAFE line includes source retry countdowns and attempt numbers, exhausted checks, and recovery after retry.

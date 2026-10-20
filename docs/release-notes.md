@@ -1,11 +1,13 @@
-Field Kit 0.1.0.17, for NINA 3.2.0.9001 or newer.
+Field Kit 0.1.0.18, for NINA 3.2.0.9001 or newer.
 
-**Cloud guard** watches comparable light-frame star counts, sustained guiding loss, guide-star instability and failed native sequence plate solves. Add it to a parent imaging container's **Triggers**, above your targets or Target Scheduler container.
+**Twilight flats by filter and rotation** runs NINA's built-in **Twilight Sky Flats** at every mechanical rotation recorded from the night's saved light frames, completing all rotations on one filter before selecting the next. Choose your light-to-dark filter order explicitly; the helper does not reverse it automatically.
 
-Choose **Park and retry** to stop guiding and park at the next light-exposure boundary, wait, then recenter and resume. Or choose **Report unsafe** and enable Cloud guard in Field Kit Safety Monitor to use your existing unsafe handler. The retry timer defaults to five minutes; it permits a new imaging trial rather than measuring clear skies. The episode budget and morning cutoff stop prolonged recovery. See the [Cloud guard guide](https://github.com/theatrus/nina-field-kit/blob/v0.1.0.17/docs/cloud-guard.md) for setup, defaults and limitations.
+Add **NINA Field Kit → Twilight flats by filter and rotation**, choose **Setup…** to enable and order filters, and place **Flat Device → Twilight Sky Flats** in its normal Instructions section. Set the native instruction's amount, exposure range, mean target, gain and binning as usual. The helper supplies the filter for each pass. Do not nest the separate captured-rotation helper inside it.
 
-Safety Monitor Setup also accepts **local ASCOM safety monitors** alongside Alpaca sources. Existing device selections continue to work under the shorter **Field Kit Safety Monitor** name. Cloud integration is optional and disabled by default.
+The compact sequence view shows the chosen filter order, observing night and execution status. The NINA-themed setup dialog keeps readable filter names beside native ON/OFF switches, with ordering arrows, rotation preview, and expandable movement settings. **Apply** validates and saves your draft to the sequence; **Cancel** discards it. Rotation-history errors appear in the preview without closing NINA.
 
-Includes the corrected native editor for **Sky flats at captured rotations**. Tests cover detector timing, NINA event bridges, safety aggregation, cancellation, recovery gates, ASCOM threading/timeouts and themed UI. Physical cloud recovery and a real Target Scheduler session still need equipment validation. Published DLLs are code-signed.
+The filter/angle plan and movement settings are frozen for each run. Failed moves, cancellation, stale filter definitions and equipment/profile changes stop before the next flat. Original native instruction filter settings are restored afterward without additional hardware movement.
 
-Update **Field Kit** through **https://nina-plugins.psf-guard.com/** and restart NINA.
+Validation includes automated fault and sequencing tests, three-theme WPF rendering and installed-NINA simulator runs with the real Twilight Sky Flats action across a restart. Simulator brightness is fixed; changing real twilight conditions still require observing validation. See the [setup guide](https://github.com/theatrus/nina-field-kit/blob/v0.1.0.18/docs/twilight-filter-rotations.md) and [simulator acceptance guide](https://github.com/theatrus/nina-field-kit/blob/v0.1.0.18/docs/nina-simulator-acceptance.md).
+
+Published DLLs are code-signed. Update **Field Kit** through **https://nina-plugins.psf-guard.com/** and restart NINA.

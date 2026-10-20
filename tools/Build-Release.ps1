@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+\.\d+$')]
-    [string] $Version = '0.1.0.17',
+    [string] $Version = '0.1.0.18',
     [switch] $StageOnly
 )
 $ErrorActionPreference = 'Stop'
@@ -60,7 +60,7 @@ $manifest = [ordered]@{
     MinimumApplicationVersion = [ordered]@{ Major = '3'; Minor = '2'; Patch = '0'; Build = '9001' }
     Descriptions = [ordered]@{
         ShortDescription = 'Safety monitoring, cloud recovery, focus tools, and sky flats at captured rotations.'
-        LongDescription = 'Combines Alpaca and local ASCOM safety sources with optional Cloud guard into one NINA safety result. Cloud guard watches star counts, guiding and solve failures, then parks and retries or signals an existing unsafe sequence. Includes background safety polling, configurable retries, live setup, diagnostics, sky flats at captured mechanical rotations, Slew to sky-flat point, AF above HFR, temperature compensation after light frames, and temperature-adjusted autofocus reference save/restore for nightly startup.'
+        LongDescription = 'Combines Alpaca and local ASCOM safety sources with optional Cloud guard into one NINA safety result. Cloud guard watches star counts, guiding and solve failures, then parks and retries or signals an existing unsafe sequence. Twilight flats by filter and rotation runs native Twilight Sky Flats at every captured mechanical angle in your chosen filter order, with a compact sequence view and separate setup dialog. Also includes background safety polling, retries, live setup, diagnostics, Slew to sky-flat point, AF above HFR, temperature compensation after light frames, and temperature-adjusted autofocus reference save/restore.'
         FeaturedImageURL = "https://raw.githubusercontent.com/theatrus/nina-field-kit/v$Version/src/Nina.FieldKit.Plugin/Assets/field-kit.png"
         ScreenshotURL = ''
         AltScreenshotURL = ''

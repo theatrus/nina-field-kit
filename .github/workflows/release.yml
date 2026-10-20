@@ -92,6 +92,8 @@ jobs:
             artifacts/temperature-compensation-trigger.png
             artifacts/focus-reference-*.png
             artifacts/flat-rotations-*.png
+            artifacts/twilight-filters-*.png
+            artifacts/twilight-setup-*.png
             artifacts/cloud-*.png
             artifacts/fault-tests/
             artifacts/fault-acceptance/
