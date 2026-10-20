@@ -1,13 +1,22 @@
 <ResourceDictionary x:Class="Nina.FieldKit.Plugin.SequenceTemplates"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
-    xmlns:behaviors="clr-namespace:NINA.Sequencer.Behaviors;assembly=NINA.Sequencer"
     xmlns:local="clr-namespace:Nina.FieldKit.Plugin"
+    xmlns:containers="clr-namespace:NINA.Sequencer.Container;assembly=NINA.Sequencer"
     xmlns:seq="clr-namespace:NINA.View.Sequencer;assembly=NINA.Sequencer">
-    <HierarchicalDataTemplate DataType="{x:Type local:SkyFlatRotationsContainer}" ItemsSource="{Binding Items}">
-        <seq:HierarchicalSequenceContainerView>
-            <seq:HierarchicalSequenceContainerView.SequenceContainerContent>
+    <!-- A self-contained native container owns its child list in both TreeView and embedded ItemsControl hosts. -->
+    <DataTemplate DataType="{x:Type local:SkyFlatRotationsContainer}">
+        <seq:SequenceContainerView>
+            <seq:SequenceContainerView.Resources>
+                <!-- Native generic sets need self-contained children when hosted inside an ItemsControl too. -->
+                <DataTemplate DataType="{x:Type containers:SequenceContainer}">
+                    <seq:SequenceContainerView />
+                </DataTemplate>
+                <DataTemplate DataType="{x:Type containers:ParallelContainer}">
+                    <seq:SequenceContainerView />
+                </DataTemplate>
+            </seq:SequenceContainerView.Resources>
+            <seq:SequenceContainerView.SequenceContainerContent>
                 <StackPanel Margin="8,4">
                     <WrapPanel>
                         <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding NightOffset}" MinWidth="150" Margin="0,0,10,0"
@@ -22,25 +31,11 @@
                         <TextBox Width="55" Margin="5,0,10,0" Text="{Binding MoveTimeoutSeconds, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" />
                         <Button Command="{Binding PreviewCommand}"><TextBlock Text="Show rotations" Margin="8,3" Foreground="{DynamicResource ButtonForegroundBrush}" /></Button>
                     </WrapPanel>
-                    <Border Tag="InstructionDropTarget" MinHeight="56" Padding="10,8" Margin="0,8,0,0"
-                        Background="{DynamicResource SecondaryBackgroundBrush}" BorderBrush="{DynamicResource PrimaryBrush}" BorderThickness="1"
-                        ToolTip="Drop an instruction or instruction set here to add it to this rotation loop.">
-                        <i:Interaction.Behaviors>
-                            <behaviors:DropIntoBehavior OnDropCommand="DropIntoCommand"
-                                AllowedDragDropTypesString="NINA.Sequencer.SequenceItem.ISequenceItem;NINA.Sequencer.TemplatedSequenceContainer;NINA.Sequencer.TargetSequenceContainer" />
-                            <behaviors:DragOverBehavior AllowDragAbove="False" AllowDragBelow="False" AllowDragCenter="True"
-                                DragOverCenterText="Add to rotation loop" />
-                        </i:Interaction.Behaviors>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Drop instructions here" FontWeight="SemiBold" />
-                            <TextBlock Text="SkyFlats or other instructions; runs at every captured rotation." Opacity="0.8" TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
                     <TextBlock Margin="0,5,0,0" Text="{Binding LastResult}" TextWrapping="Wrap" />
                 </StackPanel>
-            </seq:HierarchicalSequenceContainerView.SequenceContainerContent>
-        </seq:HierarchicalSequenceContainerView>
-    </HierarchicalDataTemplate>
+            </seq:SequenceContainerView.SequenceContainerContent>
+        </seq:SequenceContainerView>
+    </DataTemplate>
     <DataTemplate DataType="{x:Type local:SaveAutofocusReference}">
         <seq:SequenceBlockView>
             <seq:SequenceBlockView.SequenceItemContent>
