@@ -1,6 +1,6 @@
 # Temperature compensation after frame
 
-Status: implemented for the next release; not in 0.1.0.13.
+Status: available in Field Kit 0.1.0.14.
 
 This Advanced Sequencer trigger adjusts the focuser using its reported temperature and a measured steps-per-°C slope. It runs after completed light exposures, including the last light frame in a container. It does not run full autofocus or react to calibration frames, failed exposures, or skipped exposures.
 

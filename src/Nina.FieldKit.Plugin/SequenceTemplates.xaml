@@ -3,6 +3,30 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="clr-namespace:Nina.FieldKit.Plugin"
     xmlns:seq="clr-namespace:NINA.View.Sequencer;assembly=NINA.Sequencer">
+    <HierarchicalDataTemplate DataType="{x:Type local:SkyFlatRotationsContainer}" ItemsSource="{Binding Items}">
+        <seq:HierarchicalSequenceContainerView>
+            <seq:HierarchicalSequenceContainerView.SequenceContainerContent>
+                <StackPanel Margin="8,4">
+                    <WrapPanel>
+                        <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding NightOffset}" MinWidth="150" Margin="0,0,10,0"
+                            ToolTip="Observing nights run noon to noon in the computer's local time. Use Previous night for flats after noon.">
+                            <ComboBoxItem Content="Current night"><ComboBoxItem.Tag><sys:Int32 xmlns:sys="clr-namespace:System;assembly=mscorlib">0</sys:Int32></ComboBoxItem.Tag></ComboBoxItem>
+                            <ComboBoxItem Content="Previous night"><ComboBoxItem.Tag><sys:Int32 xmlns:sys="clr-namespace:System;assembly=mscorlib">-1</sys:Int32></ComboBoxItem.Tag></ComboBoxItem>
+                        </ComboBox>
+                        <TextBlock Text="Tolerance °" VerticalAlignment="Center" />
+                        <TextBox Width="55" Margin="5,0,10,0" Text="{Binding ToleranceDegrees, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}"
+                            ToolTip="Group positions this close together and require the rotator to arrive within this tolerance. Default 0.1°; 0° and 180° remain distinct." />
+                        <TextBlock Text="Move timeout s" VerticalAlignment="Center" />
+                        <TextBox Width="55" Margin="5,0,10,0" Text="{Binding MoveTimeoutSeconds, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" />
+                        <Button Command="{Binding PreviewCommand}"><TextBlock Text="Show rotations" Margin="8,3" Foreground="{DynamicResource ButtonForegroundBrush}" /></Button>
+                    </WrapPanel>
+                    <TextBlock Margin="0,6,0,0" Opacity="0.8" Text="Runs the instructions below at each captured light-frame rotation."
+                        ToolTip="Place this after Target Scheduler, with SkyFlats or other instructions inside. Field Kit must be loaded while the light frames are acquired. No planned-angle conversion or exposure capture is performed by this container." />
+                    <TextBlock Margin="0,5,0,0" Text="{Binding LastResult}" TextWrapping="Wrap" />
+                </StackPanel>
+            </seq:HierarchicalSequenceContainerView.SequenceContainerContent>
+        </seq:HierarchicalSequenceContainerView>
+    </HierarchicalDataTemplate>
     <DataTemplate DataType="{x:Type local:SaveAutofocusReference}">
         <seq:SequenceBlockView>
             <seq:SequenceBlockView.SequenceItemContent>

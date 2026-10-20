@@ -5,6 +5,7 @@ using Moq;
 using Newtonsoft.Json;
 using Nina.FieldKit.Core;
 using Nina.FieldKit.Plugin;
+using Nina.FieldKit.Plugin.SkyFlats;
 using NINA.Core.Model;
 using NINA.Equipment.Equipment.MyTelescope;
 using NINA.Equipment.Interfaces.Mediator;
@@ -108,7 +109,7 @@ public sealed class PluginTests {
     }
 
     [Fact] public void MefDiscoversManifestAndAllInstructions() {
-        using var catalog = new TypeCatalog(typeof(FieldKitPlugin), typeof(SlewToSkyFlatPoint), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot), typeof(AutofocusAboveHfrTrigger), typeof(TemperatureCompensationTrigger), typeof(SaveAutofocusReference), typeof(RestoreAutofocusReference));
+        using var catalog = new TypeCatalog(typeof(FieldKitPlugin), typeof(SlewToSkyFlatPoint), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot), typeof(AutofocusAboveHfrTrigger), typeof(TemperatureCompensationTrigger), typeof(SaveAutofocusReference), typeof(RestoreAutofocusReference), typeof(NightRotationHistory), typeof(SkyFlatRotationsContainer));
         using var container = new CompositionContainer(catalog);
         container.ComposeExportedValue(Telescope().Object);
         container.ComposeExportedValue(new Mock<NINA.Profile.Interfaces.IProfileService> { DefaultValue = DefaultValue.Mock }.Object);
@@ -116,10 +117,14 @@ public sealed class PluginTests {
         container.ComposeExportedValue(Mock.Of<ICameraMediator>());
         container.ComposeExportedValue(Mock.Of<IFilterWheelMediator>());
         container.ComposeExportedValue(Mock.Of<IFocuserMediator>());
+        container.ComposeExportedValue(Mock.Of<IRotatorMediator>());
+        container.ComposeExportedValue(Mock.Of<NINA.WPF.Base.Interfaces.Mediator.IImageSaveMediator>());
         container.ComposeExportedValue(Mock.Of<ISafetyMonitorMediator>());
         container.ComposeExportedValue(Mock.Of<NINA.WPF.Base.Interfaces.IAutoFocusVMFactory>());
         Assert.Single(container.GetExportedValues<IPluginManifest>());
-        Assert.Equal(5, container.GetExportedValues<ISequenceItem>().Count());
+        Assert.Equal(6, container.GetExportedValues<ISequenceItem>().Count());
+        Assert.IsType<SkyFlatRotationsContainer>(Assert.Single(container.GetExportedValues<NINA.Sequencer.Container.ISequenceContainer>()));
+        Assert.Same(container.GetExportedValue<NightRotationHistory>(), container.GetExportedValue<INightRotationHistory>());
         var triggers = container.GetExportedValues<NINA.Sequencer.Trigger.ISequenceTrigger>().ToArray();
         Assert.Equal(2, triggers.Length);
         Assert.Contains(triggers, trigger => trigger is AutofocusAboveHfrTrigger);
@@ -200,6 +205,7 @@ public sealed class PluginTests {
                     encoder.Save(file);
                 }
             }
+            CheckFlatRotationContainerChrome(resources, profiles.Object);
             GC.KeepAlive(profileResources);
         }
         finally {
@@ -208,5 +214,55 @@ public sealed class PluginTests {
             cache.Clear();
             foreach (var item in previous) cache[item.Key] = item.Value;
         }
+    }
+    private static void CheckFlatRotationContainerChrome(SequenceTemplates resources, NINA.Profile.Interfaces.IProfileService profiles) {
+        var rig = new SkyFlatRotationsTests.Rig();
+        rig.Container.Add(new SlewToSkyFlatPoint(Telescope().Object, rig.Profiles.Object) { Name = "Slew to sky-flat point" });
+        rig.Container.PreviewCommand.Execute(null);
+        var template = Assert.IsType<HierarchicalDataTemplate>(resources[new DataTemplateKey(typeof(SkyFlatRotationsContainer))]);
+        Assert.Equal("Items", Assert.IsType<System.Windows.Data.Binding>(template.ItemsSource).Path.Path);
+        var view = Assert.IsType<NINA.View.Sequencer.HierarchicalSequenceContainerView>(template.LoadContent());
+        Assert.IsType<System.Windows.Controls.StackPanel>(view.SequenceContainerContent);
+        var previousResources = Application.Current.Resources;
+        try {
+        foreach (var theme in new[] { "Dark", "Persian Faint", "Light" }) {
+        profiles.ActiveProfile.ColorSchemaSettings.ColorSchema = profiles.ActiveProfile.ColorSchemaSettings.ColorSchemas.Items.First(schema => schema.Name == theme);
+        var themeResources = new ResourceDictionary { ["ProfileService"] = profiles };
+        Application.Current.Resources = themeResources;
+        var shared = NINA.WPF.Base.Utility.SharedResourceDictionary.SharedDictionaries;
+        shared.Clear();
+        shared[new Uri("/NINA.WPF.Base;component/Resources/StaticResources/ProfileService.xaml", UriKind.Relative)] = new WeakReference(themeResources);
+        foreach (var resource in new[] { "StaticResources/Brushes", "StaticResources/Converters", "StaticResources/SVGDictionary",
+            "Styles/Button", "Styles/TextBlock", "Styles/TextBox", "Styles/ComboBox", "Styles/ToggleButton", "Styles/Expander" })
+            themeResources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri($"/NINA.WPF.Base;component/Resources/{resource}.xaml", UriKind.Relative) });
+        var tree = new System.Windows.Controls.TreeView { ItemsSource = new[] { rig.Container }, BorderThickness = new Thickness(0) };
+        tree.SetResourceReference(System.Windows.Controls.Control.BackgroundProperty, "BackgroundBrush");
+        tree.SetResourceReference(System.Windows.Controls.Control.ForegroundProperty, "PrimaryBrush");
+        tree.Resources.MergedDictionaries.Add(resources);
+        var itemStyle = new Style(typeof(System.Windows.Controls.TreeViewItem));
+        itemStyle.Setters.Add(new Setter(System.Windows.Controls.TreeViewItem.IsExpandedProperty, true));
+        itemStyle.Setters.Add(new Setter(System.Windows.Controls.TreeViewItem.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
+        tree.ItemContainerStyle = itemStyle;
+        var host = new System.Windows.Controls.Border { Child = tree, Padding = new Thickness(10) };
+        host.SetResourceReference(System.Windows.Controls.Border.BackgroundProperty, "BackgroundBrush");
+        host.Measure(new Size(1050, 550)); host.Arrange(new Rect(0, 0, 1050, 550)); host.UpdateLayout();
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        host.UpdateLayout();
+        Assert.Equal(profiles.ActiveProfile.ColorSchemaSettings.ColorSchema.BackgroundColor, Assert.IsType<System.Windows.Media.SolidColorBrush>(host.Background).Color);
+        IEnumerable<DependencyObject> Visuals(DependencyObject root) {
+            yield return root;
+            for (var index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); index++)
+                foreach (var child in Visuals(System.Windows.Media.VisualTreeHelper.GetChild(root, index))) yield return child;
+        }
+        var controls = Visuals(host).ToArray();
+        Assert.Contains(controls, control => Microsoft.Xaml.Behaviors.Interaction.GetBehaviors(control).Any(behavior => behavior is NINA.Sequencer.Behaviors.DragDropBehavior));
+        Assert.Contains(controls.OfType<System.Windows.Controls.TextBox>(), text => text.Text == rig.Container.Name);
+        Assert.Contains(controls.OfType<System.Windows.Controls.Button>(), button => button.Content is System.Windows.Controls.TextBlock { Text: "Show rotations" });
+        var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(1050, 550, 96, 96, System.Windows.Media.PixelFormats.Pbgra32); bitmap.Render(host);
+        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder(); encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+        var directory = System.IO.Path.GetFullPath(System.IO.Path.Combine(AppContext.BaseDirectory, "../../../../../artifacts"));
+        using var file = System.IO.File.Create(System.IO.Path.Combine(directory, $"flat-rotations-container-{theme.Replace(' ', '-')}.png")); encoder.Save(file);
+        }
+        } finally { Application.Current.Resources = previousResources; }
     }
 }

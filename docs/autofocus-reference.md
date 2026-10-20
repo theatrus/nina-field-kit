@@ -1,6 +1,6 @@
 # Nightly autofocus references
 
-Status: implemented for the next release; not in 0.1.0.13.
+Status: available in Field Kit 0.1.0.14.
 
 An OTA can finish a cool night far from the focus position needed at the next warm startup. These two sequence instructions preserve a successful startup autofocus reference and use temperature to predict the next night's starting position. The normal autofocus still runs to find precise focus.
 
