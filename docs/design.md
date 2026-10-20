@@ -10,6 +10,8 @@ Keep the individual actions small. Offer a guided recovery container for common 
 
 A separate [Alpaca safety-monitor design](alpaca-safety-monitor.md) covers a plugin-provided device that aggregates external safety endpoints with bounded tolerance for communication failures.
 
+The [Cloud guard design and setup guide](cloud-guard.md) covers the development preview of cloud detection, timed park/retry recovery, optional safety-device integration and local ASCOM safety sources.
+
 ## Evidence that motivates the first actions
 
 An ASI Mount session on September 13, 2026 showed this sequence. Times are the driver's log timestamps; their relationship to UTC requires care because the log contains inconsistent local-time offsets.

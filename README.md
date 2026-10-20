@@ -2,7 +2,7 @@
 
 ![Field Kit](src/Nina.FieldKit.Plugin/Assets/field-kit.svg)
 
-Safety monitoring, focus tools and sky-flat sequencing for [NINA](https://nighttime-imaging.eu/). Field Kit combines required Alpaca safety sources, enforces your autofocus HFR limit, compensates focus between light frames, saves temperature-aware autofocus references, and repeats flat instructions at the night's captured mechanical rotations.
+Safety monitoring, cloud recovery, focus tools and sky-flat sequencing for [NINA](https://nighttime-imaging.eu/). Field Kit combines Alpaca and local ASCOM safety sources, detects cloud events for timed recovery, enforces your autofocus HFR limit, compensates focus between light frames, saves temperature-aware autofocus references, and repeats flat instructions at the night's captured mechanical rotations.
 
 Requires **NINA 3.2.0.9001 or newer** on Windows. Built and tested against 3.2.0.9001. Published DLLs are code-signed. Licensed under **Apache-2.0**.
 
@@ -19,8 +19,8 @@ For manual installation, download the ZIP from [Releases](https://github.com/the
 
 ## Set up the safety monitor
 
-1. Open NINA's **Safety Monitor** equipment panel, choose **Field Kit Alpaca Safety Monitor**, and open **Setup**.
-2. Choose **Add source**. Enter a name, the Alpaca server's base URL, and its SafetyMonitor device number. Do not append `/api/v1/.../issafe` to the URL.
+1. Open NINA's **Safety Monitor** equipment panel, choose **Field Kit Safety Monitor** (**Field Kit Alpaca Safety Monitor** before 0.1.0.17), and open **Setup**. Existing profile device selections keep working.
+2. Choose **Add source**. Enter a name, the Alpaca server's base URL, and its SafetyMonitor device number. Do not append `/api/v1/.../issafe` to the URL. **Source type → Local ASCOM safety monitor** accepts an installed driver's ProgID instead; see the [Cloud guard guide](docs/cloud-guard.md#local-ascom-safety-sources).
 3. Set **Send Alpaca Connect commands?** to **No — read status only** for a service that already reports its device as connected. Choose **Yes — send Connect when needed** if that server requires the client to connect its device before reading safety. Neither choice controls HTTP connection renewal.
 4. Review **Safety behavior**. The defaults below are a starting point; set thresholds to match the source and your observing requirements.
 5. Choose **Use these settings**, then **Save to profile**. Connect the monitor from NINA.
@@ -66,7 +66,22 @@ Temporary network/server errors retry with randomized, increasing delays. **Adva
 
 Two tolerated misses do not promise another 90 seconds of safety after a failure: the age limit runs from the last safe request and continues during retries. A retry that succeeds avoids a missed check, but any failed attempt resets return-to-safe confirmation progress. Explicit unsafe readings use their own threshold.
 
-The monitor reports safety to NINA. Configure and verify the desired **Advanced Sequencer response to an unsafe monitor** separately; Field Kit does not park a mount, close a roof, or stop acquisition itself.
+The safety device reports safety to NINA. Configure and verify the desired **Advanced Sequencer response to an unsafe monitor** separately. The device alone does not command equipment; Cloud guard's optional Park and retry trigger provides its own mount recovery.
+
+## Cloud guard
+
+Available starting with **0.1.0.17**.
+
+Add **NINA Field Kit → Cloud guard** to the **Triggers** of a parent imaging container. Use one trigger for the running sequence, above the target instructions or Target Scheduler container. It watches saved light-frame star counts for the current target/filter and comparable camera settings, sustained guiding loss or repeated guide-star loss, and failed native sequence plate-solve operations.
+
+Choose one response:
+
+- **Park and retry**: at the next light-frame boundary, stop guiding, park, wait, then unpark and recenter the saved target before imaging resumes. Recovery waits for external safety, an open dome if connected, and a visible target. Keep the safety device's Cloud guard input disabled in this mode.
+- **Report unsafe**: enable **Safety Monitor Setup → Cloud guard → Include Cloud guard**, save, and connect Field Kit Safety Monitor. Your existing unsafe handler (for example, Sequencer+) owns parking and recovery. The trigger issues no mount or guiding commands in this mode. All enabled Alpaca/ASCOM sources must also permit safety.
+
+**Setup → Allow a retry after** defaults to **300 seconds**. The cloud flag becomes safe after this timer so imaging can be tried again; the status says **Retry allowed**, since the timer does not establish clear skies. Fresh bad evidence holds again. Two clear comparable light frames confirm recovery. The default episode budget is **3600 seconds**, including trial resumptions, with a **nautical dawn** cutoff. Budget expiry skips the enclosing Target Scheduler/target container; dawn skips the root imaging area so end-of-sequence instructions can run.
+
+Detection starts permissively while learning references. An enabled cloud safety input reports unsafe when the trigger is disarmed. This first implementation needs installed-host and equipment validation; plate-solve observation is limited to native sequencer operations. See [setup, defaults, behavior and limitations](docs/cloud-guard.md).
 
 ## Autofocus above a fixed HFR limit
 
@@ -129,6 +144,7 @@ Put a wait for morning sky brightness and any required mount positioning before 
 - **Live diagnostics** shows applied source state, latest result, evidence age, missed checks, and request counters. **Trace polls for 5 minutes** adds every request result and stops automatically.
 - **Recent events** retains the latest 300 session events. Retries, missed checks, recovery, state changes, and lifecycle events are logged without enabling tracing.
 - Search NINA's log for **FieldKitSafety**. Use **Log snapshot**, **Copy report**, or **Export diagnostics** for troubleshooting. Exports omit endpoint URLs, credentials, headers, and response bodies; source labels remain included.
+- Cloud guard's trigger and Setup show the phase, reason, star count/reference and retry countdown. Search the NINA log for **CloudGuard**. Cloud-enabled diagnostic reports include the detector snapshot and target coordinates.
 - **Sky flats at captured rotations → Show rotations** previews the observing date and mechanical angles. The live status shows which rotation is moving or running. Search the NINA log for **SkyFlatRotations** for recorded angles, the frozen plan and movement results.
 
 ## Build, test, and release
@@ -155,6 +171,6 @@ The development tools include a standalone Alpaca fault server for scripted erro
 
 ## Design and license
 
-[Sky-flat rotation loop](docs/sky-flat-rotations.md) · [Autofocus trigger](docs/autofocus-above-hfr.md) · [Temperature compensation](docs/temperature-compensation.md) · [Nightly autofocus references](docs/autofocus-reference.md) · [Safety-monitor design](docs/alpaca-safety-monitor.md) · [Implementation notes](docs/alpaca-safety-implementation.md) · [Fault-server integration design](docs/alpaca-fault-integration-suite.md)
+[Cloud guard](docs/cloud-guard.md) · [Sky-flat rotation loop](docs/sky-flat-rotations.md) · [Autofocus trigger](docs/autofocus-above-hfr.md) · [Temperature compensation](docs/temperature-compensation.md) · [Nightly autofocus references](docs/autofocus-reference.md) · [Safety-monitor design](docs/alpaca-safety-monitor.md) · [Implementation notes](docs/alpaca-safety-implementation.md) · [Fault-server integration design](docs/alpaca-fault-integration-suite.md)
 
 Copyright 2026 NINA Field Kit contributors. [Apache License, Version 2.0](LICENSE), SPDX `Apache-2.0`. Third-party dependencies retain their own licenses.

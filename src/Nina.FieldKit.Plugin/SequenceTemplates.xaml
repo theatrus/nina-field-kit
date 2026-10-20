@@ -2,6 +2,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="clr-namespace:Nina.FieldKit.Plugin"
+    xmlns:clouds="clr-namespace:Nina.FieldKit.Plugin.Clouds"
+    xmlns:cloudModel="clr-namespace:Nina.FieldKit.Core.Clouds;assembly=Nina.FieldKit.Core"
     xmlns:containers="clr-namespace:NINA.Sequencer.Container;assembly=NINA.Sequencer"
     xmlns:seq="clr-namespace:NINA.View.Sequencer;assembly=NINA.Sequencer">
     <!-- A self-contained native container owns its child list in both TreeView and embedded ItemsControl hosts. -->
@@ -79,6 +81,25 @@
             <seq:SequenceBlockView.SequenceItemProgressContent>
                 <TextBlock Text="{Binding LastResult}" VerticalAlignment="Center" MaxWidth="240"
                     TextTrimming="CharacterEllipsis" ToolTip="{Binding LastResult}" />
+            </seq:SequenceBlockView.SequenceItemProgressContent>
+        </seq:SequenceBlockView>
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type clouds:CloudGuardTrigger}">
+        <seq:SequenceBlockView>
+            <seq:SequenceBlockView.SequenceItemContent>
+                <StackPanel Orientation="Horizontal">
+                    <ComboBox Width="135" SelectedValuePath="Tag" SelectedValue="{Binding Response}" IsEnabled="{Binding CanChangeResponse}"
+                        ToolTip="Park and retry: Field Kit owns recovery. Report unsafe: Field Kit Safety Monitor signals your existing unsafe sequence. Choose before starting the sequence.">
+                        <ComboBoxItem Content="Park and retry" Tag="{x:Static cloudModel:CloudResponse.ParkAndRetry}" />
+                        <ComboBoxItem Content="Report unsafe" Tag="{x:Static cloudModel:CloudResponse.ReportUnsafe}" />
+                    </ComboBox>
+                    <Button Margin="6,0,0,0" Command="{Binding SetupCommand}" ToolTip="Cloud detection thresholds, retry timer and morning cutoff">
+                        <TextBlock Text="Setup" Margin="8,3" Foreground="{DynamicResource ButtonForegroundBrush}" />
+                    </Button>
+                </StackPanel>
+            </seq:SequenceBlockView.SequenceItemContent>
+            <seq:SequenceBlockView.SequenceItemProgressContent>
+                <TextBlock Text="{Binding LastResult}" MaxWidth="280" TextTrimming="CharacterEllipsis" ToolTip="{Binding LastResult}" />
             </seq:SequenceBlockView.SequenceItemProgressContent>
         </seq:SequenceBlockView>
     </DataTemplate>

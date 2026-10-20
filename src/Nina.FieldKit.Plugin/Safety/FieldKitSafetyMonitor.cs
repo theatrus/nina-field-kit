@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 using Nina.FieldKit.Core.Safety;
+using Nina.FieldKit.Plugin.Clouds;
 using NINA.Core.Utility;
 using NINA.Equipment.Interfaces;
 using NINA.Profile;
@@ -18,6 +19,14 @@ public sealed class FieldKitSafetyMonitor : BaseINPC, ISafetyMonitor, IDisposabl
     private readonly IProfileService profiles;
     private readonly IPluginOptionsAccessor settings;
     private SafetyMonitorService? service;
+    private readonly ICloudSafetyInput? clouds;
+    private bool includeCloudGuard;
+    public bool CloudInputEnabled { get { lock (gate) return includeCloudGuard; } }
+    public string CloudStatus => clouds?.Status ?? "Cloud guard is not available";
+    public void ShowCloudSetup() {
+        if (clouds is CloudGuardService module) module.ShowSetup();
+        else throw new InvalidOperationException("Cloud guard module is unavailable.");
+    }
     private bool disposed;
     private SafetyOutputOverride outputOverride;
     private string status = "Disconnected";
@@ -56,9 +65,9 @@ public sealed class FieldKitSafetyMonitor : BaseINPC, ISafetyMonitor, IDisposabl
             timestamp = DateTimeOffset.UtcNow, pluginVersion = DriverVersion,
             ninaVersion = typeof(IProfileService).Assembly.GetName().Version?.ToString(),
             traceRemainingSeconds = TraceRemaining.TotalSeconds, outputOverride = OutputOverride, reportedIsSafe = IsSafe,
-            snapshot = GetSnapshot(), events = DiagnosticEvents,
+            snapshot = GetSnapshot(), cloud = includeCloudGuard ? clouds?.Snapshot : null, events = DiagnosticEvents,
             revision = config?.Revision, policies = config?.Endpoints.Select(e => new {
-                e.Id, e.Label, e.Enabled, e.DeviceNumber, e.ConnectionPolicy, e.PollSeconds, e.RequestTimeoutSeconds,
+                e.Id, e.Label, e.Enabled, e.Kind, e.DeviceNumber, e.ConnectionPolicy, e.PollSeconds, e.RequestTimeoutSeconds,
                 e.AttemptsPerCycle, e.InitialBackoffSeconds, e.BackoffMultiplier, e.BackoffCapSeconds,
                 e.MaximumSafeAgeSeconds, e.ConnectionLifetimeSeconds, e.FailedCyclesToUnsafe,
                 e.UnsafeReadingsToUnsafe, e.SafeReadingsToSafe, e.ReturnToSafeHoldSeconds
@@ -70,28 +79,30 @@ public sealed class FieldKitSafetyMonitor : BaseINPC, ISafetyMonitor, IDisposabl
     public const string SettingsKey = "AlpacaSafetyConfigurationV1";
     public const string PluginId = "d2487d32-9277-45ec-b5df-89ecbff61c78";
 
-    public FieldKitSafetyMonitor(IProfileService profiles) {
+    public FieldKitSafetyMonitor(IProfileService profiles, ICloudSafetyInput? clouds = null) {
         this.profiles = profiles;
+        this.clouds = clouds;
+        if (clouds is not null) clouds.Changed += RaiseStateChanged;
         settings = new PluginOptionsAccessor(profiles, Guid.Parse(PluginId));
         profiles.BeforeProfileChanging += ProfileChanging;
         SystemEvents.PowerModeChanged += PowerModeChanged;
     }
 
     public string Id => "c3eab984-eadf-4564-aa85-e0196f08d424";
-    public string Name => "Field Kit Alpaca Safety Monitor";
+    public string Name => "Field Kit Safety Monitor";
     public string DisplayName => Name;
     public string Category => "NINA Field Kit";
-    public string Description => "Combines your enabled safety sources into one safe/unsafe result.";
+    public string Description => "Combines Alpaca and local ASCOM safety sources with optional Cloud guard into one safe/unsafe result.";
     public string DriverInfo => "Background safety checks. Open Setup for settings and diagnostics.";
     public string DriverVersion => typeof(FieldKitPlugin).Assembly.GetName().Version!.ToString();
     public bool HasSetupDialog => true;
     public bool Connected { get { lock (gate) return service is not null; } }
     public bool IsSafe { get { lock (gate) return service is not null && (outputOverride switch {
-        SafetyOutputOverride.Safe => true, SafetyOutputOverride.Unsafe => false, _ => service.Snapshot().IsSafe
+        SafetyOutputOverride.Safe => true, SafetyOutputOverride.Unsafe => false, _ => service.Snapshot().IsSafe && (!includeCloudGuard || clouds?.IsSafe == true)
     }); } }
     public SafetyOutputOverride OutputOverride { get { lock (gate) return outputOverride; } }
     public string Status { get { lock (gate) {
-        var snapshot = service?.Snapshot();
+        var snapshot = GetSnapshot();
         if (snapshot is null) return status;
         return outputOverride == SafetyOutputOverride.Passthrough ? snapshot.Summary :
             $"OVERRIDE {outputOverride.ToString().ToUpperInvariant()} — sources {(snapshot.IsSafe ? "SAFE" : "UNSAFE")}: {snapshot.Summary}";
@@ -135,6 +146,7 @@ public sealed class FieldKitSafetyMonitor : BaseINPC, ISafetyMonitor, IDisposabl
             var replacement = service?.CreateReplacement(frozen);
             try { settings.SetValueString(SettingsKey, JsonConvert.SerializeObject(frozen, JsonSettings)); }
             catch { replacement?.Dispose(); throw; }
+            includeCloudGuard = frozen.IncludeCloudGuard;
             if (replacement is not null) {
                 var retired = service!;
                 retired.Changed -= RaiseStateChanged;
@@ -158,7 +170,8 @@ public sealed class FieldKitSafetyMonitor : BaseINPC, ISafetyMonitor, IDisposabl
             if (service is not null) return Task.FromResult(true);
             try {
                 var config = LoadConfiguration().Freeze();
-                var created = new SafetyMonitorService(config, log: RecordDiagnostic);
+                var created = new SafetyMonitorService(config, clientFactory: CreateClient, log: RecordDiagnostic);
+                includeCloudGuard = config.IncludeCloudGuard;
                 created.Changed += RaiseStateChanged;
                 service = created;
                 created.Start();
@@ -190,7 +203,15 @@ public sealed class FieldKitSafetyMonitor : BaseINPC, ISafetyMonitor, IDisposabl
         RaiseStateChanged();
     }
 
-    public SafetyMonitorSnapshot? GetSnapshot() { lock (gate) return service?.Snapshot(); }
+    public static ISafetyEndpointClient CreateClient(SafetyEndpointOptions options) => options.Kind == SafetySourceKind.Ascom
+        ? new AscomSafetyClient(options) : new AlpacaSafetyClient(options);
+    public SafetyMonitorSnapshot? GetSnapshot() { lock (gate) {
+        var snapshot = service?.Snapshot();
+        return snapshot is null || !includeCloudGuard ? snapshot : snapshot with {
+            IsSafe = snapshot.IsSafe && clouds?.IsSafe == true,
+            Summary = (snapshot.Endpoints.Count == 0 ? "No external sources" : "External sources: " + snapshot.Summary) + " | Cloud guard: " + CloudStatus
+        };
+    } }
     private void ProfileChanging(object? sender, EventArgs e) {
         RecordDiagnostic("ProfileChanging", new { reason = "Disconnecting and clearing safety evidence" });
         journal.SetTrace(false);
@@ -224,6 +245,7 @@ public sealed class FieldKitSafetyMonitor : BaseINPC, ISafetyMonitor, IDisposabl
     public void Dispose() {
         lock (gate) { if (disposed) return; disposed = true; }
         profiles.BeforeProfileChanging -= ProfileChanging;
+        if (clouds is not null) clouds.Changed -= RaiseStateChanged;
         SystemEvents.PowerModeChanged -= PowerModeChanged;
         Disconnect();
     }

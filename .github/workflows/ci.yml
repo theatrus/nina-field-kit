@@ -57,6 +57,7 @@ jobs:
             artifacts/autofocus-sequence-item.png
             artifacts/temperature-compensation-trigger.png
             artifacts/focus-reference-*.png
+            artifacts/cloud-*.png
             artifacts/flat-rotations-*.png
             artifacts/fault-tests/
           if-no-files-found: warn

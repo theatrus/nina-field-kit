@@ -1,12 +1,15 @@
 namespace Nina.FieldKit.Core.Safety;
 
 public enum ConnectionPolicy { ExternallyManaged, Managed }
+public enum SafetySourceKind { Alpaca, Ascom }
 
 public sealed record SafetyEndpointOptions {
     public const double DefaultPollSeconds = 30;
     public Guid Id { get; init; } = Guid.NewGuid();
     public string Label { get; init; } = "Safety source";
     public bool Enabled { get; init; } = true;
+    public SafetySourceKind Kind { get; init; }
+    public string AscomDriverId { get; init; } = "";
     public string BaseUrl { get; init; } = "http://localhost:11111";
     public int DeviceNumber { get; init; }
     public ConnectionPolicy ConnectionPolicy { get; init; }
@@ -33,7 +36,11 @@ public sealed record SafetyEndpointOptions {
     }
 
     public void Validate() {
-        _ = NormalizedBaseUri();
+        if (!Enum.IsDefined(Kind)) throw new ArgumentException("Unsupported safety source type.");
+        if (Kind == SafetySourceKind.Alpaca) _ = NormalizedBaseUri();
+        else if (string.IsNullOrWhiteSpace(AscomDriverId) || AscomDriverId.Length > 255 ||
+            !System.Text.RegularExpressions.Regex.IsMatch(AscomDriverId, @"^[A-Za-z_][A-Za-z0-9_.-]+$"))
+            throw new ArgumentException("AscomDriverId must be the registered local ASCOM driver ProgID.");
         if (Id == Guid.Empty || string.IsNullOrWhiteSpace(Label) || Label.Length > 100 || DeviceNumber < 0)
             throw new ArgumentException("Each endpoint needs an ID, a label of 1–100 characters, and a nonnegative device number.");
         if (!Enum.IsDefined(ConnectionPolicy)) throw new ArgumentException("Unsupported connection policy.");
@@ -62,19 +69,21 @@ public sealed record SafetyConfiguration {
     public int SchemaVersion { get; init; } = 1;
     public Guid Revision { get; init; } = Guid.NewGuid();
     public IReadOnlyList<SafetyEndpointOptions> Endpoints { get; init; } = Array.Empty<SafetyEndpointOptions>();
+    public bool IncludeCloudGuard { get; init; }
 
     public SafetyConfiguration Freeze() {
         if (SchemaVersion != 1 || Revision == Guid.Empty) throw new ArgumentException("Unsupported configuration schema or missing revision.");
-        if (Endpoints is null || Endpoints.Count > 16 || !Endpoints.Any(e => e is { Enabled: true }))
-            throw new ArgumentException("Configure 1–16 endpoints with at least one enabled source.");
+        if (Endpoints is null || Endpoints.Count > 16 || (!IncludeCloudGuard && !Endpoints.Any(e => e is { Enabled: true })))
+            throw new ArgumentException("Configure up to 16 sources, with at least one enabled source or the Cloud guard input.");
         var endpoints = Endpoints.ToArray();
         foreach (var endpoint in endpoints) {
             if (endpoint is null) throw new ArgumentException("An endpoint cannot be null.");
             endpoint.Validate();
         }
         if (endpoints.Select(e => e.Id).Distinct().Count() != endpoints.Length ||
-            endpoints.Select(e => (e.NormalizedBaseUri().AbsoluteUri, e.DeviceNumber)).Distinct().Count() != endpoints.Length)
-            throw new ArgumentException("Duplicate endpoint IDs or normalized URL/device pairs are not allowed.");
+            endpoints.Select(e => e.Kind == SafetySourceKind.Ascom ? "ASCOM:" + e.AscomDriverId.ToUpperInvariant()
+                : $"ALPACA:{e.NormalizedBaseUri().AbsoluteUri}:{e.DeviceNumber}").Distinct().Count() != endpoints.Length)
+            throw new ArgumentException("Duplicate source IDs, ASCOM driver IDs, or normalized URL/device pairs are not allowed.");
         return this with { Endpoints = Array.AsReadOnly(endpoints) };
     }
 }

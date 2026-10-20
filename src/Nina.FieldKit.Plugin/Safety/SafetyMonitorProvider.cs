@@ -2,6 +2,7 @@ using System.ComponentModel.Composition;
 using NINA.Equipment.Interfaces;
 using NINA.Equipment.Interfaces.ViewModel;
 using NINA.Profile.Interfaces;
+using Nina.FieldKit.Plugin.Clouds;
 
 namespace Nina.FieldKit.Plugin.Safety;
 
@@ -13,7 +14,7 @@ public sealed class SafetyMonitorProvider : IEquipmentProvider<ISafetyMonitor>, 
     public FieldKitSafetyMonitor Device { get; }
 
     [ImportingConstructor]
-    public SafetyMonitorProvider(IProfileService profiles) => Device = new FieldKitSafetyMonitor(profiles);
+    public SafetyMonitorProvider(IProfileService profiles, [Import(AllowDefault = true)] CloudGuardService? clouds = null) => Device = new FieldKitSafetyMonitor(profiles, clouds);
     public IList<ISafetyMonitor> GetEquipment() => new List<ISafetyMonitor> { Device };
     public void Dispose() => Device.Dispose();
 }

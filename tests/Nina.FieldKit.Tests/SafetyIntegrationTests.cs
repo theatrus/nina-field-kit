@@ -186,12 +186,16 @@ public sealed class SafetyIntegrationTests {
                 var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
                 var manifestIcon = BitmapFrame.Create(new Uri(new Nina.FieldKit.Plugin.FieldKitPlugin().Descriptions.FeaturedImageURL));
                 Assert.Equal(512, manifestIcon.PixelWidth);
-                using var device = new FieldKitSafetyMonitor(Profiles().Object);
+                using var cloudRig = new CloudBridgeTests.Rig();
+                cloudRig.Service.SaveOptions(new(), cloudRig.Profiles.Object.ActiveProfile);
+                using var device = new FieldKitSafetyMonitor(Profiles().Object, cloudRig.Service);
                 var example = new SafetyEndpointOptions { Label = "Observatory safety", BaseUrl = "http://192.0.2.1:11111", DeviceNumber = 0 };
                 device.SaveConfiguration(new SafetyConfiguration { Endpoints = [example] }, device.ProfileIdentity);
                 // Render detached visual trees without opening a user-visible window.
                 foreach (var theme in new[] { "Dark", "Persian Faint", "Light" })
-                foreach (var (window, name) in new[] { ((Window)new SafetySetupWindow(device), "safety-setup"), ((Window)new SafetyEndpointEditor(example), "safety-endpoint") }) {
+                foreach (var (window, name) in new[] { ((Window)new SafetySetupWindow(device), "safety-setup"), ((Window)new SafetyEndpointEditor(example), "safety-endpoint"),
+                    ((Window)new SafetyEndpointEditor(example with { Kind = SafetySourceKind.Ascom, AscomDriverId = "ASCOM.Example.SafetyMonitor", ConnectionPolicy = ConnectionPolicy.Managed }), "safety-ascom"),
+                    ((Window)new Nina.FieldKit.Plugin.Clouds.CloudSetupWindow(cloudRig.Service), "cloud-setup") }) {
                     var content = (FrameworkElement)window.Content;
                     var settings = new ColorSchemaSettings();
                     settings.ColorSchema = settings.ColorSchemas.Items.First(s => s.Name == theme);
@@ -208,9 +212,13 @@ public sealed class SafetyIntegrationTests {
                         resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri($"/NINA.WPF.Base;component/Resources/{resource}.xaml", UriKind.Relative) });
                     content.SetValue(Control.FontSizeProperty, 14d);
                     window.Content = null;
-                    var tabs = ((DockPanel)content).Children.OfType<TabControl>().Single();
-                    for (var tabIndex = 0; tabIndex < tabs.Items.Count; tabIndex++) {
-                    tabs.SelectedIndex = tabIndex;
+                    var tabs = ((DockPanel)content).Children.OfType<TabControl>().SingleOrDefault();
+                    for (var tabIndex = 0; tabIndex < (tabs?.Items.Count ?? (name == "cloud-setup" ? 2 : 1)); tabIndex++) {
+                    if (tabs is not null) tabs.SelectedIndex = tabIndex;
+                    else if (name == "cloud-setup" && tabIndex == 1) {
+                        var scroll = ((DockPanel)content).Children.OfType<ScrollViewer>().Single();
+                        ((StackPanel)scroll.Content).Children.OfType<Expander>().Single().IsExpanded = true;
+                    }
                     content.Measure(new Size(window.Width, window.Height));
                     content.Arrange(new Rect(0, 0, window.Width, window.Height));
                     content.UpdateLayout();

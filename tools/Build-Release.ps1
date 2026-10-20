@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+\.\d+$')]
-    [string] $Version = '0.1.0.16',
+    [string] $Version = '0.1.0.17',
     [switch] $StageOnly
 )
 $ErrorActionPreference = 'Stop'
@@ -56,11 +56,11 @@ $manifest = [ordered]@{
     License = 'Apache-2.0'
     LicenseURL = "$repository/blob/v$Version/LICENSE"
     ChangelogURL = "$repository/releases/tag/v$Version"
-    Tags = @('safety', 'alpaca', 'monitoring', 'autofocus', 'flats', 'rotator')
+    Tags = @('safety', 'alpaca', 'ascom', 'monitoring', 'clouds', 'autofocus', 'flats', 'rotator')
     MinimumApplicationVersion = [ordered]@{ Major = '3'; Minor = '2'; Patch = '0'; Build = '9001' }
     Descriptions = [ordered]@{
-        ShortDescription = 'Alpaca safety monitoring, focus tools, and sky flats at captured rotations.'
-        LongDescription = 'Combines multiple Alpaca safety sources into one NINA safety result, with background polling, configurable retries, live setup, and clear diagnostics. Includes Slew to sky-flat point, a container that runs flat instructions at the night''s captured mechanical rotations, AF above HFR, temperature compensation after light frames, and temperature-adjusted autofocus reference save/restore for nightly startup.'
+        ShortDescription = 'Safety monitoring, cloud recovery, focus tools, and sky flats at captured rotations.'
+        LongDescription = 'Combines Alpaca and local ASCOM safety sources with optional Cloud guard into one NINA safety result. Cloud guard watches star counts, guiding and solve failures, then parks and retries or signals an existing unsafe sequence. Includes background safety polling, configurable retries, live setup, diagnostics, sky flats at captured mechanical rotations, Slew to sky-flat point, AF above HFR, temperature compensation after light frames, and temperature-adjusted autofocus reference save/restore for nightly startup.'
         FeaturedImageURL = "https://raw.githubusercontent.com/theatrus/nina-field-kit/v$Version/src/Nina.FieldKit.Plugin/Assets/field-kit.png"
         ScreenshotURL = ''
         AltScreenshotURL = ''

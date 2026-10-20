@@ -5,6 +5,7 @@ using Moq;
 using Newtonsoft.Json;
 using Nina.FieldKit.Core;
 using Nina.FieldKit.Plugin;
+using Nina.FieldKit.Plugin.Clouds;
 using Nina.FieldKit.Plugin.SkyFlats;
 using NINA.Core.Model;
 using NINA.Equipment.Equipment.MyTelescope;
@@ -109,7 +110,7 @@ public sealed class PluginTests {
     }
 
     [Fact] public void MefDiscoversManifestAndAllInstructions() {
-        using var catalog = new TypeCatalog(typeof(FieldKitPlugin), typeof(SlewToSkyFlatPoint), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot), typeof(AutofocusAboveHfrTrigger), typeof(TemperatureCompensationTrigger), typeof(SaveAutofocusReference), typeof(RestoreAutofocusReference), typeof(NightRotationHistory), typeof(SkyFlatRotationsContainer));
+        using var catalog = new TypeCatalog(typeof(FieldKitPlugin), typeof(SlewToSkyFlatPoint), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot), typeof(AutofocusAboveHfrTrigger), typeof(TemperatureCompensationTrigger), typeof(SaveAutofocusReference), typeof(RestoreAutofocusReference), typeof(CloudGuardService), typeof(CloudGuardTrigger), typeof(NightRotationHistory), typeof(SkyFlatRotationsContainer));
         using var container = new CompositionContainer(catalog);
         container.ComposeExportedValue(Telescope().Object);
         container.ComposeExportedValue(new Mock<NINA.Profile.Interfaces.IProfileService> { DefaultValue = DefaultValue.Mock }.Object);
@@ -117,6 +118,10 @@ public sealed class PluginTests {
         container.ComposeExportedValue(Mock.Of<ICameraMediator>());
         container.ComposeExportedValue(Mock.Of<IFilterWheelMediator>());
         container.ComposeExportedValue(Mock.Of<IFocuserMediator>());
+        container.ComposeExportedValue(Mock.Of<IGuiderMediator>());
+        container.ComposeExportedValue(Mock.Of<IImagingMediator>());
+        container.ComposeExportedValue(Mock.Of<IDomeMediator>());
+        container.ComposeExportedValue(Mock.Of<NINA.Equipment.Interfaces.IDomeFollower>());
         container.ComposeExportedValue(Mock.Of<IRotatorMediator>());
         container.ComposeExportedValue(Mock.Of<NINA.WPF.Base.Interfaces.Mediator.IImageSaveMediator>());
         container.ComposeExportedValue(Mock.Of<ISafetyMonitorMediator>());
@@ -126,9 +131,10 @@ public sealed class PluginTests {
         Assert.IsType<SkyFlatRotationsContainer>(Assert.Single(container.GetExportedValues<NINA.Sequencer.Container.ISequenceContainer>()));
         Assert.Same(container.GetExportedValue<NightRotationHistory>(), container.GetExportedValue<INightRotationHistory>());
         var triggers = container.GetExportedValues<NINA.Sequencer.Trigger.ISequenceTrigger>().ToArray();
-        Assert.Equal(2, triggers.Length);
+        Assert.Equal(3, triggers.Length);
         Assert.Contains(triggers, trigger => trigger is AutofocusAboveHfrTrigger);
         Assert.Contains(triggers, trigger => trigger is TemperatureCompensationTrigger);
+        Assert.Contains(triggers, trigger => trigger is CloudGuardTrigger);
         Assert.Equal("3.2.0.9001", new FieldKitPlugin().MinimumApplicationVersion.ToString());
         Assert.Equal("Apache-2.0", new FieldKitPlugin().License);
         Assert.Equal("https://www.apache.org/licenses/LICENSE-2.0", new FieldKitPlugin().LicenseURL);
@@ -167,7 +173,8 @@ public sealed class PluginTests {
             Assert.IsType<DataTemplate>(resources[new DataTemplateKey(typeof(MountHealthCheck))]);
             Assert.IsType<DataTemplate>(resources[new DataTemplateKey(typeof(CaptureEquipmentSnapshot))]);
             Assert.IsType<DataTemplate>(resources[new DataTemplateKey(typeof(AutofocusAboveHfr))]);
-            foreach (var type in new[] { typeof(SlewToSkyFlatPoint), typeof(SaveAutofocusReference), typeof(RestoreAutofocusReference), typeof(TemperatureCompensationTrigger), typeof(AutofocusAboveHfrTrigger), typeof(AutofocusAboveHfr), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot) }) {
+            using var cloudRig = new CloudBridgeTests.Rig();
+            foreach (var type in new[] { typeof(CloudGuardTrigger), typeof(SlewToSkyFlatPoint), typeof(SaveAutofocusReference), typeof(RestoreAutofocusReference), typeof(TemperatureCompensationTrigger), typeof(AutofocusAboveHfrTrigger), typeof(AutofocusAboveHfr), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot) }) {
                 var template = (DataTemplate)resources[new DataTemplateKey(type)];
                 var block = Assert.IsType<NINA.View.Sequencer.SequenceBlockView>(template.LoadContent());
                 Assert.IsType<System.Windows.Controls.StackPanel>(block.SequenceItemContent);
@@ -177,13 +184,15 @@ public sealed class PluginTests {
                 Assert.NotNull(block.FindName("MoveUpButton"));
                 Assert.NotNull(block.FindName("MoveDownButton"));
                 if (type == typeof(AutofocusAboveHfrTrigger) || type == typeof(TemperatureCompensationTrigger) ||
-                    type == typeof(SaveAutofocusReference) || type == typeof(RestoreAutofocusReference)) {
+                    type == typeof(SaveAutofocusReference) || type == typeof(RestoreAutofocusReference) || type == typeof(CloudGuardTrigger)) {
                     block.DataContext = type == typeof(AutofocusAboveHfrTrigger)
                         ? new AutofocusAboveHfrTrigger(Mock.Of<IHfrAutofocusService>()) { Name = "AF above HFR" }
                         : type == typeof(TemperatureCompensationTrigger)
                         ? new TemperatureCompensationTrigger(Mock.Of<IFocuserMediator>(), Mock.Of<ISafetyMonitorMediator>()) { Name = "Temperature compensation after frame" }
                         : type == typeof(SaveAutofocusReference)
                         ? new SaveAutofocusReference(Mock.Of<IAutofocusReferenceService>()) { Name = "Save autofocus reference" }
+                        : type == typeof(CloudGuardTrigger)
+                        ? new CloudGuardTrigger(cloudRig.Service) { Name = "Cloud guard" }
                         : new RestoreAutofocusReference(Mock.Of<IAutofocusReferenceService>()) { Name = "Restore autofocus reference" };
                     var host = new System.Windows.Controls.Border {
                         Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(30, 30, 30)),
@@ -199,6 +208,7 @@ public sealed class PluginTests {
                     var directory = System.IO.Path.GetFullPath(System.IO.Path.Combine(AppContext.BaseDirectory, "../../../../../artifacts"));
                     System.IO.Directory.CreateDirectory(directory);
                     var filename = type == typeof(AutofocusAboveHfrTrigger) ? "autofocus-sequence-item.png"
+                        : type == typeof(CloudGuardTrigger) ? "cloud-trigger.png"
                         : type == typeof(TemperatureCompensationTrigger) ? "temperature-compensation-trigger.png"
                         : type == typeof(SaveAutofocusReference) ? "focus-reference-save.png" : "focus-reference-restore.png";
                     using var file = System.IO.File.Create(System.IO.Path.Combine(directory, filename));
