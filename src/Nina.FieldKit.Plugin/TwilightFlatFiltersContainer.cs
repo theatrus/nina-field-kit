@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.ComponentModel.Composition;
+using System.Windows;
 using System.Windows.Input;
 using Newtonsoft.Json;
 using Nina.FieldKit.Plugin.SkyFlats;
@@ -63,6 +64,7 @@ public sealed class TwilightFlatFiltersContainer : SkyFlatRotationsContainer {
         this.history = history; this.profiles = profiles; this.rotator = rotator;
         this.camera = camera; this.safety = safety; this.wheel = wheel;
         filterOrder.CollectionChanged += FilterOrderChanged;
+        PropertyChanged += (_, args) => { if (args.PropertyName == nameof(NightOffset)) RaisePropertyChanged(nameof(NightSummary)); };
         RefreshFilters();
     }
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
@@ -72,24 +74,53 @@ public sealed class TwilightFlatFiltersContainer : SkyFlatRotationsContainer {
             filterOrder.CollectionChanged -= FilterOrderChanged;
             filterOrder = value ?? new();
             filterOrder.CollectionChanged += FilterOrderChanged;
-            ObserveRows(); RaisePropertyChanged();
+            ObserveRows(); RaisePropertyChanged(); RaisePropertyChanged(nameof(FilterSummary));
         }
     }
     public bool CanEditFilters => !executing;
+    public string FilterSummary {
+        get {
+            var names = FilterOrder.Where(row => row.Enabled).Select(row => row.Name).ToArray();
+            return names.Length == 0 ? "No filters selected" : string.Join(" → ", names);
+        }
+    }
+    public string NightSummary => NightOffset == -1 ? "Previous night" : "Current night";
+    public ICommand SetupCommand => new GalaSoft.MvvmLight.Command.RelayCommand(() => {
+        var window = new TwilightFlatsSetupWindow(this);
+        if (Application.Current?.MainWindow is { IsVisible: true } owner) {
+            window.Owner = owner; window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        }
+        window.ShowDialog();
+    }, () => CanEditFilters);
+    public TwilightFlatsSetupModel CreateSetup() => new(this, profiles.ActiveProfile);
+    internal FlatFilterSelection[] GetProfileFilters() => KnownFilters
+        .Where(filter => filter.Position >= 0 && !string.IsNullOrWhiteSpace(filter.Name))
+        .Select(filter => new FlatFilterSelection(filter.Name, filter.Position, false)).ToArray();
+    internal void ApplySetup(TwilightFlatsSetupModel draft, double toleranceDegrees, double timeoutSeconds) {
+        if (!CanEditFilters) throw new InvalidOperationException("Wait for the flats loop to finish before changing setup.");
+        if (!ReferenceEquals(draft.ProfileIdentity, profiles.ActiveProfile))
+            throw new InvalidOperationException("The NINA profile changed. Reopen setup for the current profile.");
+        ValidateSettings(draft.NightOffset, toleranceDegrees, timeoutSeconds);
+        _ = CaptureFilters(draft.Filters);
+        FilterOrder = new(draft.Filters.Select(row => row.Copy()));
+        NightOffset = draft.NightOffset; ToleranceDegrees = toleranceDegrees; MoveTimeoutSeconds = timeoutSeconds;
+    }
     public string FilterStatus { get => filterStatus; private set { filterStatus = value; RaisePropertyChanged(); } }
     public ICommand RefreshFiltersCommand => new GalaSoft.MvvmLight.Command.RelayCommand(RefreshFilters, () => CanEditFilters);
     public ICommand MoveFilterUpCommand => new GalaSoft.MvvmLight.Command.RelayCommand<FlatFilterSelection>(row => MoveFilter(row, -1), row => CanMove(row, -1));
     public ICommand MoveFilterDownCommand => new GalaSoft.MvvmLight.Command.RelayCommand<FlatFilterSelection>(row => MoveFilter(row, 1), row => CanMove(row, 1));
     private IEnumerable<FilterInfo> KnownFilters => profiles.ActiveProfile.FilterWheelSettings.FilterWheelFilters?.AsEnumerable() ?? [];
     private void FilterOrderChanged(object? sender, NotifyCollectionChangedEventArgs args) {
-        ObserveRows(); RaisePropertyChanged(nameof(FilterOrder));
+        ObserveRows(); RaisePropertyChanged(nameof(FilterOrder)); RaisePropertyChanged(nameof(FilterSummary));
     }
     private void ObserveRows() {
         foreach (var row in observed) row.PropertyChanged -= FilterChanged;
         observed.Clear();
         foreach (var row in filterOrder) if (row is not null && observed.Add(row)) row.PropertyChanged += FilterChanged;
     }
-    private void FilterChanged(object? sender, PropertyChangedEventArgs args) => RaisePropertyChanged(nameof(FilterOrder));
+    private void FilterChanged(object? sender, PropertyChangedEventArgs args) {
+        RaisePropertyChanged(nameof(FilterOrder)); RaisePropertyChanged(nameof(FilterSummary));
+    }
     private bool CanMove(FlatFilterSelection? row, int step) {
         if (!CanEditFilters || row is null) return false;
         var index = FilterOrder.IndexOf(row);
@@ -108,9 +139,11 @@ public sealed class TwilightFlatFiltersContainer : SkyFlatRotationsContainer {
                 rows.Add(new(filter.Name, filter.Position, enabled: old.Length == 0));
         FilterOrder = new(rows);
     }
-    private FlatFilterSelection[] CaptureFilters() {
-        if (FilterOrder.Any(row => row is null)) throw new ArgumentException("The filter list is invalid; refresh profile filters.");
-        var plan = FilterOrder.Where(row => row.Enabled).Select(row => row.Copy()).ToArray();
+    private FlatFilterSelection[] CaptureFilters() => CaptureFilters(FilterOrder);
+    private FlatFilterSelection[] CaptureFilters(IEnumerable<FlatFilterSelection> rows) {
+        var configured = rows.ToArray();
+        if (configured.Any(row => row is null)) throw new ArgumentException("The filter list is invalid; refresh profile filters.");
+        var plan = configured.Where(row => row.Enabled).Select(row => row.Copy()).ToArray();
         if (plan.Length == 0) throw new ArgumentException("Enable at least one filter in the ordered list.");
         if (plan.Select(row => row.Position).Distinct().Count() != plan.Length)
             throw new ArgumentException("Each enabled filter position must appear once.");

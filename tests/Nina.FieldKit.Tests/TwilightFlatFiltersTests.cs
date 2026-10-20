@@ -22,6 +22,34 @@ using Xunit;
 namespace Nina.FieldKit.Tests;
 
 public sealed class TwilightFlatFiltersTests {
+    [Fact] public void SetupDraftDoesNotChangeSequenceUntilApplyAndUpdatesSummary() {
+        var rig = new Rig(); var draft = rig.Container.CreateSetup();
+        draft.MoveUpCommand.Execute(draft.Filters[1]); draft.Filters[1].Enabled = false;
+        draft.NightOffset = -1; draft.ToleranceDegrees = "0.2"; draft.MoveTimeoutSeconds = "90";
+        Assert.Equal("L → R", rig.Container.FilterSummary); Assert.Equal(0, rig.Container.NightOffset);
+        var unchangedPreviewStatus = rig.Container.LastResult;
+        _ = draft.PreviewRotations(); Assert.Equal(unchangedPreviewStatus, rig.Container.LastResult);
+        draft.Apply();
+        Assert.Equal("R", rig.Container.FilterSummary); Assert.Equal("Previous night", rig.Container.NightSummary);
+        Assert.Equal(.2, rig.Container.ToleranceDegrees); Assert.Equal(90, rig.Container.MoveTimeoutSeconds);
+        draft.Filters[0].Enabled = false; Assert.Equal("R", rig.Container.FilterSummary);
+    }
+    [Theory] [InlineData("-1", "90")] [InlineData("bad", "90")] [InlineData("NaN", "90")]
+    [InlineData("0.1", "4")] [InlineData("0.1", "Infinity")]
+    public void InvalidSetupDoesNotPartiallyChangeSequence(string tolerance, string timeout) {
+        var rig = new Rig(); var draft = rig.Container.CreateSetup();
+        draft.MoveUpCommand.Execute(draft.Filters[1]); draft.NightOffset = -1;
+        draft.ToleranceDegrees = tolerance; draft.MoveTimeoutSeconds = timeout;
+        Assert.ThrowsAny<ArgumentException>(draft.Apply);
+        Assert.Equal("L → R", rig.Container.FilterSummary); Assert.Equal(0, rig.Container.NightOffset);
+        Assert.Equal(.1, rig.Container.ToleranceDegrees); Assert.Equal(180, rig.Container.MoveTimeoutSeconds);
+    }
+    [Fact] public void StaleSetupCannotApplyToAnotherProfile() {
+        var rig = new Rig(); var draft = rig.Container.CreateSetup();
+        rig.Rotation.Profiles.SetupGet(profiles => profiles.ActiveProfile).Returns(Mock.Of<NINA.Profile.Interfaces.IProfile>());
+        Assert.Throws<InvalidOperationException>(draft.Apply);
+        Assert.Equal("L → R", rig.Container.FilterSummary);
+    }
     internal sealed class Rig {
         public readonly SkyFlatRotationsTests.Rig Rotation = new();
         public readonly Mock<IFilterWheelMediator> Wheel = new();

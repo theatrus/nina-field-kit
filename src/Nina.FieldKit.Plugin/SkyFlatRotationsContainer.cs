@@ -49,12 +49,14 @@ public class SkyFlatRotationsContainer : SequenceContainer {
     }, () => Status != SequenceEntityStatus.RUNNING);
     private static string Describe(FlatRotationPlan plan) => $"Night {plan.Night:yyyy-MM-dd}: " +
         (plan.Angles.Length == 0 ? "no captured rotations" : string.Join(", ", plan.Angles.Select(a => $"{a:0.##}°")));
-    private void ValidateSettings() {
-        if (NightOffset is < -1 or > 0) throw new ArgumentException("Choose the current or previous observing night.");
-        _ = FlatRotations.Distinct([], ToleranceDegrees);
-        if (!double.IsFinite(MoveTimeoutSeconds) || MoveTimeoutSeconds is < 5 or > 1800)
+    internal string DescribeRotations(int offset, double toleranceDegrees) => Describe(history.GetPlan(offset, toleranceDegrees));
+    protected static void ValidateSettings(int offset, double toleranceDegrees, double timeoutSeconds) {
+        if (offset is < -1 or > 0) throw new ArgumentException("Choose the current or previous observing night.");
+        _ = FlatRotations.Distinct([], toleranceDegrees);
+        if (!double.IsFinite(timeoutSeconds) || timeoutSeconds is < 5 or > 1800)
             throw new ArgumentException("Move timeout must be between 5 and 1800 seconds.");
     }
+    private void ValidateSettings() => ValidateSettings(NightOffset, ToleranceDegrees, MoveTimeoutSeconds);
     public override bool Validate() {
         var errors = new List<string>();
         try { ValidateSettings(); } catch (ArgumentException e) { errors.Add(e.Message); }

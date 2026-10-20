@@ -139,7 +139,7 @@ Put a wait for morning sky brightness and any required mount positioning before 
 
 ## Twilight flats by filter and rotation (development)
 
-The companion feature branch adds **Twilight flats by filter and rotation**: a sortable, enabled-filter list from the NINA profile, with every captured mechanical angle completed on one filter before the next. Place NINA's built-in **Twilight Sky Flats** inside its normal Instructions section and configure its exposure settings. The container supplies the filter in the order you choose; no separate SkyFlats plugin or nested rotation helper is needed. This companion is not included in **0.1.0.17**. See the [setup and execution guide](docs/twilight-filter-rotations.md).
+The companion feature branch adds **Twilight flats by filter and rotation**: choose **Setup…** to select and order profile filters in a separate dialog. The sequence shows a compact summary, with every captured mechanical angle completed on one filter before the next. Place NINA's built-in **Twilight Sky Flats** inside its normal Instructions section and configure its exposure settings. The container supplies the filter in the order you choose; no separate SkyFlats plugin or nested rotation helper is needed. This companion is not included in **0.1.0.17**. See the [setup and execution guide](docs/twilight-filter-rotations.md).
 
 ## Status and troubleshooting
 

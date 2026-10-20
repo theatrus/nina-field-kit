@@ -9,9 +9,9 @@ This container runs NINA's built-in [Twilight Sky Flats](https://github.com/isbe
 1. Connect the camera, filter wheel and rotator. Configure filter names and positions in the active NINA profile.
 2. After imaging, wait for your flat conditions and position the mount, for example with **Slew to sky-flat point**.
 3. Add **NINA Field Kit → Twilight flats by filter and rotation**. This container already includes the rotation loop.
-4. Check the filters to include. New instances start with all known profile filters enabled. Use each row's **↑ / ↓** buttons to set the exact order you want. This never changes physical slot order or automatically reverses the list.
+4. Choose **Setup…**, enable the filters to include, and use each row's **↑ / ↓** buttons to set the exact order you want. New instances start with all known profile filters enabled. This never changes physical slot order or automatically reverses the list.
 5. Inside its normal **Instructions** section, add **Flat Device → Twilight Sky Flats**. Set its amount, exposure range, target mean, tolerance, gain, offset, binning and optional dither as usual.
-6. Choose **Current night** or **Previous night**, review tolerance/move timeout, and use **Show rotations** to preview the angles.
+6. In setup, choose **Current night** or **Previous night**, review **Movement settings** if needed, and use **Show rotations** to preview the angles. Choose **Apply** to save your draft to the sequence.
 
 The container supplies the selected filter to every enabled native Twilight Sky Flats instruction while running, overriding that instruction's own **Filter** selector. Its original filter setting is restored afterward. Other twilight settings remain owned by the native instruction. You can put native twilight instructions in a nested sequential set and include positioning instructions you want repeated at each angle.
 
@@ -37,7 +37,9 @@ L: 12° → 192° → 45°
 
 ## Saved settings and updates
 
-Filter selection and order are saved in the sequence and survive copying or NINA save/reload. **Refresh profile filters** retains matching filters in your saved order, removes definitions no longer present, and adds new filters unchecked when refreshing an existing list. Review the order after refreshing. Without a refresh, a renamed or moved enabled filter fails validation rather than being silently mapped to another slot.
+Choose **Setup…** on the container to select and order filters. The sequence shows a compact ordered-filter summary and execution status; the full editor opens in a NINA-themed dialog. Filter names have their own text column beside the enable checkbox. **Apply** saves the draft to this sequence; **Cancel** or closing the dialog discards it. Night selection, **Show rotations**, and expandable movement settings also live in this dialog. Previewing angles does not change the running sequence or move equipment.
+
+Filter selection and order are saved in the sequence and survive copying or NINA save/reload. **Refresh profile filters** in setup retains matching filters in your draft order, removes definitions no longer present, and adds new filters unchecked. Review the order before applying. Without a refresh, a renamed or moved enabled filter fails validation rather than being silently mapped to another slot.
 
 The enabled filter order, observing-night angle plan, tolerance and timeout are copied when the run starts. Later edits or late light-frame saves affect the next run. Filter-order controls are disabled while the loop executes.
 
