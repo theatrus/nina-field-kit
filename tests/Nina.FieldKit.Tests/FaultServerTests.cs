@@ -62,8 +62,10 @@ public sealed class FaultServerTests {
     [InlineData(403, false)] [InlineData(404, false)] [InlineData(405, false)] [InlineData(501, false)]
     public async Task RealHttpStatusClassificationAndUserAgent(int status, bool transient) {
         await using var run = new Run(FaultReply.Http(status), "http-" + status);
-        using var client = new AlpacaSafetyClient(run.Options);
-        Assert.True((await client.PollAsync(default)).IsSafe);
+        // This tests status mapping and headers, not latency. Cold HTTP/JIT startup on CI can exceed 250 ms.
+        using var client = new AlpacaSafetyClient(run.Options with { RequestTimeoutSeconds = 5 });
+        var baseline = await client.PollAsync(default);
+        Assert.True(baseline.IsSafe, $"Baseline: {baseline.Outcome}, {baseline.Reason}");
         run.Server.Activate();
         var result = await client.PollAsync(default);
         Assert.Equal(transient ? PollOutcome.TransientFailure : PollOutcome.PermanentFailure, result.Outcome);
