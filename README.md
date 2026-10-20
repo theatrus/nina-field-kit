@@ -2,7 +2,7 @@
 
 ![Field Kit](src/Nina.FieldKit.Plugin/Assets/field-kit.svg)
 
-Alpaca safety monitoring and focus tools for [NINA](https://nighttime-imaging.eu/). Field Kit combines required safety sources into one safe/unsafe result, enforces your chosen autofocus HFR limit, compensates focus between light frames, and saves temperature-aware autofocus references for the next night's startup.
+Safety monitoring, focus tools and sky-flat sequencing for [NINA](https://nighttime-imaging.eu/). Field Kit combines required Alpaca safety sources, enforces your autofocus HFR limit, compensates focus between light frames, saves temperature-aware autofocus references, and repeats flat instructions at the night's captured mechanical rotations.
 
 Requires **NINA 3.2.0.9001 or newer** on Windows. Built and tested against 3.2.0.9001. Published DLLs are code-signed. Licensed under **Apache-2.0**.
 
@@ -86,7 +86,7 @@ Replace the old sequence instruction with this trigger when updating; saved inst
 
 ## Temperature compensation after a frame
 
-In development for the next release. In the Advanced Sequencer, add **NINA Field Kit → Temperature compensation after frame** to your imaging container's **Triggers**. Enter your measured, signed **Steps / °C** slope; it starts blank. Run autofocus before imaging to establish focus. The focuser must report temperature.
+Available starting with version **0.1.0.14**. In the Advanced Sequencer, add **NINA Field Kit → Temperature compensation after frame** to your imaging container's **Triggers**. Enter your measured, signed **Steps / °C** slope; it starts blank. Run autofocus before imaging to establish focus. The focuser must report temperature.
 
 After each completed light frame, the trigger uses NINA's relative temperature-compensation method to move the focuser and wait for settling before the sequence continues. Positive slopes increase position as temperature rises; negative slopes decrease it. It adjusts position without running a full autofocus. NINA maintains the temperature baseline and fractional-step remainder, and resets the baseline after successful autofocus or manual focusing.
 
@@ -96,7 +96,7 @@ With **Target Scheduler**, place the Field Kit trigger in the **Triggers** of th
 
 ## Start-of-night autofocus reference
 
-In development for the next release. Put these instructions around your existing startup autofocus, once per night:
+Available starting with version **0.1.0.14**. Put these instructions around your existing startup autofocus, once per night:
 
 1. Select the filter you use for autofocus.
 2. Add **NINA Field Kit → Restore autofocus reference**. Enter your measured, signed **Steps / °C** slope; it starts blank.
@@ -116,7 +116,7 @@ Includes the [SkyFlats mount-compatibility fix](https://github.com/photon1503/Sk
 
 ## Sky flats at captured rotations
 
-In development for the next release. Add **NINA Field Kit → Sky flats at captured rotations** after your Target Scheduler imaging block, while the rotator is still connected. Drop **SkyFlats** or any other flat instructions inside it. The container moves to each distinct **mechanical** rotator position used by saved light frames, verifies arrival, and runs its children at each angle. Your child instructions own filters, exposures and the flat method.
+Available starting with version **0.1.0.14**. Add **NINA Field Kit → Sky flats at captured rotations** after your Target Scheduler imaging block, while the rotator is still connected. Drop **SkyFlats** or any other flat instructions inside it. The container moves to each distinct **mechanical** rotator position used by saved light frames, verifies arrival, and runs its children at each angle. Your child instructions own filters, exposures and the flat method.
 
 Field Kit records light-frame rotations automatically while loaded and keeps them in profile settings across restarts, separately for each camera and rotator. **Current night** runs noon to noon in the computer's local time; choose **Previous night** when taking the preceding night's flats after noon. **Show rotations** previews the list. Close angles are grouped within **0.1°** by default; 0°/360° match, while 0°/180° remain separate.
 
@@ -142,6 +142,8 @@ dotnet test Nina.FieldKit.sln -c Release --no-build
 ```
 
 [CI](https://github.com/theatrus/nina-field-kit/actions/workflows/ci.yml) builds and tests on Windows, including fake-clock and loopback integration tests and rendered NINA-themed dialogs. Tests use simulated or loopback endpoints and never contact observatory hardware. NINA's transitive ToastNotifications and VVVV.FreeImage dependencies currently emit NU1701 compatibility warnings. Installed-host and sequence behavior should be validated with your equipment.
+
+For the installed-host rotation test, close NINA and run `./tools/Run-NinaRotationAcceptance.ps1` after building Release. It launches NINA twice with a fresh simulator-only profile, verifies saved LIGHT/FLAT FITS angles and restart persistence, and restores the previous plugin DLLs afterward. Requires the ASCOM rotator simulator. See the [simulator acceptance guide](docs/nina-simulator-acceptance.md).
 
 Release tags use four version parts, for example `v0.1.0.0`. The [signed release workflow](.github/workflows/release.yml) builds and tests the tagged source, produces code-signed DLLs, verifies their signatures, and creates the archive, SHA-256 checksum, and NINA manifest. It produces a draft GitHub release for verification. There is no unsigned release fallback.
 

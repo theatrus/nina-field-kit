@@ -1,6 +1,6 @@
 # Sky flats at captured rotations
 
-Status: development preview, not yet released. Built against NINA 3.2.0.9001.
+Status: available in Field Kit 0.1.0.14. Built against NINA 3.2.0.9001.
 
 This container visits the night's captured mechanical rotator positions and runs the instructions inside at each position. It lets an existing SkyFlats instruction handle sky-flat acquisition after Target Scheduler imaging, and also accepts other instructions or nested instruction sets. It does not require a Target Scheduler installation or access its database.
 
@@ -35,7 +35,7 @@ Field Kit must be loaded while the lights are acquired. It automatically observe
 
 For example, lights at mechanical positions 12.00°, 12.04°, 192.00° and 45.00° produce three visits with the default tolerance: 12°, 192° and 45°. Positions around 359.98°/0.02° group across the wrap point; a half turn remains a separate flat orientation. Grouping keeps the first recorded representative, rather than rounding every requested angle to a grid.
 
-The container takes a fixed copy of the selected plan and motion settings when it starts. Allow pending light-frame saves to complete first. New save events or edits during the loop do not add angles to that run. Each iteration resets the children and executes them through NINA's native sequential strategy, including nested instruction sets, block lifecycle events, triggers and error policies. Disabled instructions remain disabled. Conditions on this container run per rotation, as they do for an instruction set; put limits that should stop the whole flats session on its enclosing container. An ancestor condition that ends the session prevents the next move. A skipped child stops further rotation visits.
+The container takes a fixed copy of the selected plan and motion settings when it starts. Allow pending light-frame saves to complete first. New save events or edits during the loop do not add angles to that run. Each iteration resets the children and executes them through NINA's native sequential strategy, including nested instruction sets, block lifecycle events, triggers and error policies. Disabled instructions, conditions and triggers remain disabled between rotation visits. Conditions on this container run per rotation, as they do for an instruction set; put limits that should stop the whole flats session on its enclosing container. An ancestor condition that ends the session prevents the next move. A skipped child stops further rotation visits.
 
 An empty night, or a body with no enabled instructions, skips without moving. The container leaves the rotator at the last visited position and performs no extra restoration movement during cleanup. Re-running the container repeats the selected angles; it does not track how many flats were completed.
 
@@ -57,4 +57,4 @@ This version records images observed while Field Kit is loaded. It does not impo
 
 The status line and **Show rotations** provide the date/angle list and active iteration. NINA log entries under **SkyFlatRotations** include `RotationRecorded`, `Plan`, `MoveStarted`, `InstructionsStarted`, `Completed`, cancellation and failure. Corrupt history and recording failures in the current session block that night's plan rather than treating an incomplete list as complete; recording failures do not throw into NINA's image-save pipeline.
 
-Tests exercise native save events, history persistence and equipment isolation, noon/DST boundaries, angle wrap and half-turn separation, repeated/nested children, disabled items, ancestor conditions, profile changes, equipment/safety gates, unsuccessful/cancelled moves, fixed plans, NINA serialization and MEF discovery. CI also renders the real NINA container and child instructions. Real rotator and SkyFlats behavior still needs installed-host validation.
+Tests exercise native save events, history persistence and equipment isolation, noon/DST boundaries, angle wrap and half-turn separation, repeated/nested children, disabled items/conditions/triggers, ancestor conditions, profile changes, equipment/safety gates, unsuccessful/cancelled moves, fixed plans, NINA serialization and MEF discovery. CI also renders the real NINA container and child instructions. The [installed-host simulator acceptance](nina-simulator-acceptance.md) launches NINA twice and verifies saved LIGHT/FLAT FITS angles and persistent history. Physical equipment and SkyFlats' own acquisition algorithm require separate validation.

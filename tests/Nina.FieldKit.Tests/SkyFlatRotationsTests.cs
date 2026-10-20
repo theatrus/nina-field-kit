@@ -74,6 +74,25 @@ public sealed class SkyFlatRotationsTests {
         Assert.Equal(3, rig.Calls.Count(x => x == "nested")); Assert.DoesNotContain(rig.Calls, call => call.StartsWith("flat:"));
         Assert.Equal(SequenceEntityStatus.DISABLED, disabled.Status);
     }
+    [Fact] public async Task DisabledConditionsAndNestedTriggersStayDisabledAtEveryRotation() {
+        var rig = new Rig();
+        var outerCondition = new LoopCondition { Iterations = 0, Status = SequenceEntityStatus.DISABLED };
+        rig.Container.Add(outerCondition);
+        var nested = new SequentialContainer(); rig.Container.Add(nested);
+        var innerCondition = new LoopCondition { Iterations = 0, Status = SequenceEntityStatus.DISABLED };
+        nested.Add(innerCondition);
+        var trigger = new Mock<NINA.Sequencer.Trigger.ISequenceTrigger>();
+        trigger.SetupProperty(x => x.Status, SequenceEntityStatus.DISABLED);
+        trigger.Setup(x => x.ShouldTrigger(It.IsAny<ISequenceItem>(), It.IsAny<ISequenceItem>())).Returns(true);
+        nested.Add(trigger.Object);
+        nested.Add(new Probe(() => rig.Calls.Add("flat")));
+        await rig.Container.Execute(null!, default);
+        Assert.Equal(3, rig.Calls.Count(x => x == "flat"));
+        Assert.Equal(SequenceEntityStatus.DISABLED, outerCondition.Status);
+        Assert.Equal(SequenceEntityStatus.DISABLED, innerCondition.Status);
+        Assert.Equal(SequenceEntityStatus.DISABLED, trigger.Object.Status);
+        trigger.Verify(x => x.Run(It.IsAny<ISequenceContainer>(), It.IsAny<IProgress<ApplicationStatus>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
     [Theory] [InlineData("unsafe")] [InlineData("exposing")] [InlineData("moving")] [InlineData("disconnected")] [InlineData("wrong driver")]
     public async Task EquipmentGateBlocksBeforeAnyMoveOrFlat(string reason) {
         var rig = new Rig(); rig.AddProbe();

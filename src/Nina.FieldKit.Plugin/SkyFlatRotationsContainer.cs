@@ -86,6 +86,32 @@ public sealed class SkyFlatRotationsContainer : SequenceContainer {
         }
         return true;
     }
+    private void ResetForRotation() {
+        // Native ResetAll/ResetConditions also enable disabled conditions and triggers.
+        // Replaying an angle must preserve the user's disabled selections throughout the body.
+        var restore = new List<Action>();
+        void RememberDisabled(ISequenceContainer container) {
+            foreach (var item in container.GetItemsSnapshot()) {
+                if (item.Status == SequenceEntityStatus.DISABLED) restore.Add(() => item.Status = SequenceEntityStatus.DISABLED);
+                if (item is ISequenceContainer nested) RememberDisabled(nested);
+            }
+            if (container is IConditionable conditions) foreach (var condition in conditions.GetConditionsSnapshot())
+                if (condition.Status == SequenceEntityStatus.DISABLED) restore.Add(() => condition.Status = SequenceEntityStatus.DISABLED);
+            if (container is ITriggerable triggers) foreach (var trigger in triggers.GetTriggersSnapshot()) {
+                if (trigger.Status == SequenceEntityStatus.DISABLED) restore.Add(() => trigger.Status = SequenceEntityStatus.DISABLED);
+                if (trigger is SequenceTrigger native && native.TriggerRunner is not null) RememberDisabled(native.TriggerRunner);
+            }
+        }
+        RememberDisabled(this);
+        try {
+            foreach (var item in GetItemsSnapshot()) {
+                if (item is ISequenceContainer nested) nested.ResetAll(); else item.ResetProgress();
+            }
+            ResetConditions();
+            foreach (var trigger in GetTriggersSnapshot()) if (trigger.Status != SequenceEntityStatus.DISABLED) trigger.Status = SequenceEntityStatus.CREATED;
+            Iterations = 0;
+        } finally { foreach (var reset in restore) reset(); }
+    }
     private void CheckEquipment(FlatRotationScope scope, CancellationToken token) {
         token.ThrowIfCancellationRequested();
         if (history.Scope != scope) throw new SequenceEntityFailedException("Profile, camera or rotator changed during the flat rotation loop.");
@@ -120,12 +146,7 @@ public sealed class SkyFlatRotationsContainer : SequenceContainer {
             var sequence = new SequentialStrategy();
             for (var index = 0; index < plan.Angles.Length; index++) {
                 lifetime.Token.ThrowIfCancellationRequested();
-                foreach (var item in GetItemsSnapshot()) {
-                    if (item is ISequenceContainer nested) nested.ResetAll(); else item.ResetProgress();
-                }
-                ResetConditions();
-                foreach (var trigger in GetTriggersSnapshot()) if (trigger.Status != SequenceEntityStatus.DISABLED) trigger.Status = SequenceEntityStatus.CREATED;
-                Iterations = 0;
+                ResetForRotation();
                 if (!ConditionsPermit(Items.FirstOrDefault(i => i.Status == SequenceEntityStatus.CREATED))) {
                     LastResult = "Stopped by sequence condition"; log.Write("ConditionStopped", new { index }); return;
                 }
