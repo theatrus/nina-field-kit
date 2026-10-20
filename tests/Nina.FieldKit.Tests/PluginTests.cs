@@ -18,7 +18,7 @@ using Xunit;
 namespace Nina.FieldKit.Tests;
 
 [Collection("Windows UI")]
-public sealed class PluginTests {
+public sealed partial class PluginTests {
     private static Mock<ITelescopeMediator> Telescope(TelescopeInfo? info = null) {
         var mock = new Mock<ITelescopeMediator>(MockBehavior.Strict);
         mock.Setup(m => m.GetInfo()).Returns(info ?? new TelescopeInfo { Connected = true, TrackingEnabled = true });
@@ -110,7 +110,7 @@ public sealed class PluginTests {
     }
 
     [Fact] public void MefDiscoversManifestAndAllInstructions() {
-        using var catalog = new TypeCatalog(typeof(FieldKitPlugin), typeof(SlewToSkyFlatPoint), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot), typeof(AutofocusAboveHfrTrigger), typeof(TemperatureCompensationTrigger), typeof(SaveAutofocusReference), typeof(RestoreAutofocusReference), typeof(CloudGuardService), typeof(CloudGuardTrigger), typeof(NightRotationHistory), typeof(SkyFlatRotationsContainer));
+        using var catalog = new TypeCatalog(typeof(FieldKitPlugin), typeof(SlewToSkyFlatPoint), typeof(MountHealthCheck), typeof(CaptureEquipmentSnapshot), typeof(AutofocusAboveHfrTrigger), typeof(TemperatureCompensationTrigger), typeof(SaveAutofocusReference), typeof(RestoreAutofocusReference), typeof(CloudGuardService), typeof(CloudGuardTrigger), typeof(NightRotationHistory), typeof(SkyFlatRotationsContainer), typeof(TwilightFlatFiltersContainer));
         using var container = new CompositionContainer(catalog);
         container.ComposeExportedValue(Telescope().Object);
         container.ComposeExportedValue(new Mock<NINA.Profile.Interfaces.IProfileService> { DefaultValue = DefaultValue.Mock }.Object);
@@ -127,8 +127,11 @@ public sealed class PluginTests {
         container.ComposeExportedValue(Mock.Of<ISafetyMonitorMediator>());
         container.ComposeExportedValue(Mock.Of<NINA.WPF.Base.Interfaces.IAutoFocusVMFactory>());
         Assert.Single(container.GetExportedValues<IPluginManifest>());
-        Assert.Equal(6, container.GetExportedValues<ISequenceItem>().Count());
-        Assert.IsType<SkyFlatRotationsContainer>(Assert.Single(container.GetExportedValues<NINA.Sequencer.Container.ISequenceContainer>()));
+        Assert.Equal(7, container.GetExportedValues<ISequenceItem>().Count());
+        var loops = container.GetExportedValues<NINA.Sequencer.Container.ISequenceContainer>().ToArray();
+        Assert.Equal(2, loops.Length);
+        Assert.Contains(loops, loop => loop.GetType() == typeof(SkyFlatRotationsContainer));
+        Assert.Contains(loops, loop => loop is TwilightFlatFiltersContainer);
         Assert.Same(container.GetExportedValue<NightRotationHistory>(), container.GetExportedValue<INightRotationHistory>());
         var triggers = container.GetExportedValues<NINA.Sequencer.Trigger.ISequenceTrigger>().ToArray();
         Assert.Equal(3, triggers.Length);
@@ -218,6 +221,7 @@ public sealed class PluginTests {
             CheckFlatRotationContainerChrome(resources, profiles.Object);
             CheckFlatRotationInstructionDrops(resources);
             CheckEmbeddedFlatRotationChildren(resources);
+            CheckTwilightFilterContainer(resources);
             GC.KeepAlive(profileResources);
         }
         finally {

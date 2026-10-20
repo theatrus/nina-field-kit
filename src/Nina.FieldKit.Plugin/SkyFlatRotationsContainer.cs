@@ -24,7 +24,7 @@ namespace Nina.FieldKit.Plugin;
 [ExportMetadata("Icon", "RotatorSVG")]
 [ExportMetadata("Category", "NINA Field Kit")]
 [JsonObject(MemberSerialization.OptIn)]
-public sealed class SkyFlatRotationsContainer : SequenceContainer {
+public class SkyFlatRotationsContainer : SequenceContainer {
     private readonly INightRotationHistory history;
     private readonly IProfileService profiles;
     private readonly IRotatorMediator rotator;
@@ -42,7 +42,7 @@ public sealed class SkyFlatRotationsContainer : SequenceContainer {
     [JsonProperty] public int NightOffset { get => nightOffset; set { nightOffset = value; RaisePropertyChanged(); } }
     [JsonProperty] public double ToleranceDegrees { get => tolerance; set { tolerance = value; RaisePropertyChanged(); } }
     [JsonProperty] public double MoveTimeoutSeconds { get => moveTimeoutSeconds; set { moveTimeoutSeconds = value; RaisePropertyChanged(); } }
-    public string LastResult { get => lastResult; private set { lastResult = value; RaisePropertyChanged(); } }
+    public string LastResult { get => lastResult; protected set { lastResult = value; RaisePropertyChanged(); } }
     public ICommand PreviewCommand => new GalaSoft.MvvmLight.Command.RelayCommand(() => {
         try { var plan = history.GetPlan(NightOffset, ToleranceDegrees); LastResult = Describe(plan); }
         catch (Exception e) { LastResult = e.Message; }
@@ -64,20 +64,22 @@ public sealed class SkyFlatRotationsContainer : SequenceContainer {
     }
     public override void AfterParentChanged() { base.AfterParentChanged(); Validate(); }
     public override object Clone() {
-        var clone = new SkyFlatRotationsContainer(history, profiles, rotator, camera, safety) {
-            NightOffset = NightOffset, ToleranceDegrees = ToleranceDegrees, MoveTimeoutSeconds = MoveTimeoutSeconds,
-            IsExpanded = IsExpanded,
-            Items = new ObservableCollection<ISequenceItem>(Items.Select(i => (ISequenceItem)i.Clone())),
-            Conditions = new ObservableCollection<ISequenceCondition>(Conditions.Select(i => (ISequenceCondition)i.Clone())),
-            Triggers = new ObservableCollection<ISequenceTrigger>(Triggers.Select(i => (ISequenceTrigger)i.Clone()))
-        };
+        var clone = new SkyFlatRotationsContainer(history, profiles, rotator, camera, safety);
+        CopyLoopTo(clone);
+        return clone;
+    }
+    protected void CopyLoopTo(SkyFlatRotationsContainer clone) {
+        clone.NightOffset = NightOffset; clone.ToleranceDegrees = ToleranceDegrees; clone.MoveTimeoutSeconds = MoveTimeoutSeconds;
+        clone.IsExpanded = IsExpanded;
+        clone.Items = new ObservableCollection<ISequenceItem>(Items.Select(i => (ISequenceItem)i.Clone()));
+        clone.Conditions = new ObservableCollection<ISequenceCondition>(Conditions.Select(i => (ISequenceCondition)i.Clone()));
+        clone.Triggers = new ObservableCollection<ISequenceTrigger>(Triggers.Select(i => (ISequenceTrigger)i.Clone()));
         clone.CopyMetaData(this);
         foreach (var item in clone.Items) item.AttachNewParent(clone);
         foreach (var condition in clone.Conditions) condition.AttachNewParent(clone);
         foreach (var trigger in clone.Triggers) trigger.AttachNewParent(clone);
-        return clone;
     }
-    private bool ConditionsPermit(ISequenceItem? next) {
+    protected bool ConditionsPermit(ISequenceItem? next) {
         for (ISequenceContainer? container = this; container is not null; container = container.Parent) {
             if (container is not IConditionable conditionable) continue;
             var active = conditionable.GetConditionsSnapshot().Any(c => c.Status != SequenceEntityStatus.DISABLED);
@@ -86,7 +88,7 @@ public sealed class SkyFlatRotationsContainer : SequenceContainer {
         }
         return true;
     }
-    private void ResetForRotation() {
+    protected void ResetForRotation() {
         // Native ResetAll/ResetConditions also enable disabled conditions and triggers.
         // Replaying an angle must preserve the user's disabled selections throughout the body.
         var restore = new List<Action>();
@@ -112,7 +114,7 @@ public sealed class SkyFlatRotationsContainer : SequenceContainer {
             Iterations = 0;
         } finally { foreach (var reset in restore) reset(); }
     }
-    private void CheckEquipment(FlatRotationScope scope, CancellationToken token) {
+    protected virtual void CheckEquipment(FlatRotationScope scope, CancellationToken token) {
         token.ThrowIfCancellationRequested();
         if (history.Scope != scope) throw new SequenceEntityFailedException("Profile, camera or rotator changed during the flat rotation loop.");
         var info = rotator.GetInfo();
@@ -125,7 +127,15 @@ public sealed class SkyFlatRotationsContainer : SequenceContainer {
             !string.IsNullOrEmpty(profiles.ActiveProfile.SafetyMonitorSettings.Id) && profiles.ActiveProfile.SafetyMonitorSettings.Id != "No_Device"))
             throw new SequenceEntityFailedException("The safety monitor must permit the flat rotation move.");
     }
-    internal async Task RunRotations(IProgress<ApplicationStatus> progress, CancellationToken token) {
+    protected sealed record RotationRun(FlatRotationPlan Plan, double Tolerance, double Timeout);
+    protected RotationRun CaptureRun() {
+        ValidateSettings();
+        var plan = history.GetPlan(NightOffset, ToleranceDegrees);
+        return new(plan with { Angles = plan.Angles.ToArray() }, ToleranceDegrees, MoveTimeoutSeconds);
+    }
+    internal virtual Task RunRotations(IProgress<ApplicationStatus> progress, CancellationToken token) =>
+        RunRotationLoop(progress, token);
+    protected async Task<bool> RunRotationLoop(IProgress<ApplicationStatus> progress, CancellationToken token, RotationRun? frozen = null) {
         using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(token);
         var profileChanged = 0;
         void ProfileChanging(object? sender, EventArgs args) {
@@ -135,20 +145,20 @@ public sealed class SkyFlatRotationsContainer : SequenceContainer {
         profiles.BeforeProfileChanging += ProfileChanging;
         var log = new RunDiagnostics("SkyFlatRotations");
         try {
-            token.ThrowIfCancellationRequested(); ValidateSettings();
+            token.ThrowIfCancellationRequested();
             // Freeze both the plan and settings; new image saves cannot grow a running loop.
-            var loaded = history.GetPlan(NightOffset, ToleranceDegrees);
-            var plan = loaded with { Angles = loaded.Angles.ToArray() };
-            var matchTolerance = ToleranceDegrees; var timeout = MoveTimeoutSeconds;
+            var settings = frozen ?? CaptureRun();
+            var plan = settings.Plan;
+            var matchTolerance = settings.Tolerance; var timeout = settings.Timeout;
             log.Write("Plan", new { plan.Scope, plan.Night, plan.Angles, matchTolerance });
-            if (plan.Angles.Length == 0) { LastResult = Describe(plan) + "; skipped"; return; }
-            if (Items.All(i => i.Status == SequenceEntityStatus.DISABLED)) { LastResult = "No enabled instructions; skipped"; return; }
+            if (plan.Angles.Length == 0) { LastResult = Describe(plan) + "; skipped"; return false; }
+            if (Items.All(i => i.Status == SequenceEntityStatus.DISABLED)) { LastResult = "No enabled instructions; skipped"; return false; }
             var sequence = new SequentialStrategy();
             for (var index = 0; index < plan.Angles.Length; index++) {
                 lifetime.Token.ThrowIfCancellationRequested();
                 ResetForRotation();
                 if (!ConditionsPermit(Items.FirstOrDefault(i => i.Status == SequenceEntityStatus.CREATED))) {
-                    LastResult = "Stopped by sequence condition"; log.Write("ConditionStopped", new { index }); return;
+                    LastResult = "Stopped by sequence condition"; log.Write("ConditionStopped", new { index }); return false;
                 }
                 CheckEquipment(plan.Scope, lifetime.Token);
                 var angle = plan.Angles[index];
@@ -177,11 +187,12 @@ public sealed class SkyFlatRotationsContainer : SequenceContainer {
                 log.Write("InstructionsStarted", new { index, angle, actual });
                 await sequence.Execute(this, progress, lifetime.Token);
                 lifetime.Token.ThrowIfCancellationRequested();
-                if (GetItemsSnapshot().Any(i => i.Status == SequenceEntityStatus.SKIPPED)) {
-                    LastResult = "Instructions skipped; rotation loop stopped"; return;
+                if (HasSkippedInstruction(this)) {
+                    LastResult = "Instructions skipped; rotation loop stopped"; return false;
                 }
             }
             LastResult = $"Ran instructions at {plan.Angles.Length} captured rotations"; log.Write("Completed", new { rotations = plan.Angles.Length });
+            return true;
         } catch (OperationCanceledException) when (Volatile.Read(ref profileChanged) != 0) {
             LastResult = "Profile changed; flat rotation loop stopped"; log.Write("ProfileChanged");
             throw new SequenceEntityFailedException(LastResult);
@@ -191,6 +202,10 @@ public sealed class SkyFlatRotationsContainer : SequenceContainer {
             LastResult = "Failed: " + e.Message; log.Write("Failure", e.ToString()); throw;
         } finally { profiles.BeforeProfileChanging -= ProfileChanging; progress?.Report(new ApplicationStatus()); }
     }
+    // Immutable native actions own their hidden steps; inspect editable nested instruction sets.
+    private static bool HasSkippedInstruction(ISequenceContainer container) => container.GetItemsSnapshot().Any(item =>
+        item.Status == SequenceEntityStatus.SKIPPED || (item.Status != SequenceEntityStatus.DISABLED &&
+            item is ISequenceContainer nested && item is not IImmutableContainer && HasSkippedInstruction(nested)));
 }
 
 public sealed class FlatRotationStrategy : IExecutionStrategy {
